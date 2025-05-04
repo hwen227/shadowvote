@@ -8,7 +8,7 @@ export function Navbar() {
         <nav className="w-full bg-white border-b border-gray-200 py-4 px-6 sticky top-0 z-10">
             <div className="container mx-auto flex justify-between items-center">
                 <Link href="/" className="text-xl font-bold text-primary">
-                    匿名投票系统
+                    ShadowVote
                 </Link>
 
                 <div>

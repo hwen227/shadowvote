@@ -21,7 +21,49 @@ export interface AllowlistWithCap {
   capId: string
 }
 
+type VotePoolCreatedEvent = {
+  creator: string,
+  vote_pool: string
+}
 
+
+//TODO:加上cursor和翻页？
+export const getVotePoolState = async (): Promise<VotePoolCreatedEvent[]> => {
+  const events = await suiClient.queryEvents({
+    query: {
+      MoveEventType: `${networkConfig.testnet.variables.packageID}::shadowvote::VotePoolCreated`,
+    }
+  });
+
+
+  const votePoolState = events.data.map((event) => {
+    const parsedEvent = event.parsedJson as VotePoolCreatedEvent;
+    return parsedEvent;
+  });
+
+  return votePoolState;
+}
+
+
+export const getMultiVotePools = async (vote_ids: string[]): Promise<SuiVotePool[]> => {
+  const rawData = await suiClient.multiGetObjects({
+    ids: vote_ids,
+    options: {
+      showContent: true,
+    },
+  });
+
+  const votePools = rawData.map((obj) => {
+    const parsedVotePool = obj.data?.content as SuiParsedData;
+    if (!('fields' in parsedVotePool) || !parsedVotePool) {
+      throw new Error("Invalid vote pool data structure");
+    }
+    return parsedVotePool.fields as SuiVotePool;
+  });
+
+  return votePools;
+
+}
 
 export const getAllowlists = async (owner: string) => {
   if (!isValidSuiAddress(owner)) {

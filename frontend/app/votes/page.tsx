@@ -6,29 +6,36 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { VoteCard } from "@/components/vote/vote-card";
 import { VoteStatus, VotePoolDisplayType, SuiVotePool } from "@/types";
 import { useCurrentAccount } from "@mysten/dapp-kit";
-import { getVotePoolById } from "@/contracts/query";
-
-
-const mockVotesIds = [
-    "0x794f04adfa5a9bf93f309e80683574c87bd7bd6f027ddb81d48a1524f76c359f",
-]
+import { getMultiVotePools, getVotePoolState } from "@/contracts/query";
 
 
 export default function VotesPage() {
     const [activeTab, setActiveTab] = useState<"all" | "active" | "upcoming" | "ended">("all");
     const [votepools, setVotepools] = useState<VotePoolDisplayType[]>([]);
+    const [loading, setLoading] = useState(true);
     const currentAccount = useCurrentAccount();
 
 
-    useEffect(() => {
-        const fetchVotes = async () => {
-            const votepools = await getVotePoolById(mockVotesIds[0]);// for test
-            const displayVotepools = convertVotePoolToDisplayType(votepools); //for tes ,go map when really use
-
-            console.log(displayVotepools);
-            setVotepools([displayVotepools]);
+    const fetchVotePools = async () => {
+        setLoading(true);
+        try {
+            const state = await getVotePoolState();
+            const voteIds = state.map((item) => item.vote_pool);
+            const votePools = await getMultiVotePools(voteIds);
+            const displayVotepools = votePools.map(convertVotePoolToDisplayType);
+            setVotepools(displayVotepools);
+        } catch (error) {
+            console.error("获取投票池失败:", error);
+        } finally {
+            setLoading(false);
         }
-        fetchVotes();
+    }
+
+    useEffect(() => {
+        // 使用立即执行的异步函数来调用fetchVotePools
+        (async () => {
+            await fetchVotePools();
+        })();
     }, [currentAccount]);
 
     // 根据选项卡筛选投票
@@ -75,9 +82,6 @@ export default function VotesPage() {
 
     return (
         <div className="container mx-auto px-4 py-8 max-w-5xl">
-            <div className="flex justify-between items-center mb-8">
-                <h1 className="text-xl font-medium">可参与的投票</h1>
-            </div>
 
             <Tabs defaultValue="all" onValueChange={(value) => setActiveTab(value as never)}>
                 <TabsList className="mb-6">
@@ -89,22 +93,71 @@ export default function VotesPage() {
 
                 <TabsContent value="all" className="mt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                        {getFilteredVotes().map(votepools => (
-                            <VoteCard key={votepools.id} vote={votepools} />
-                        ))}
-
-                        {/* 创建新投票卡片 */}
-                        <Link href="/votes/create" passHref>
-                            <div className="bg-white rounded-lg border border-gray-200 border-dashed p-6 flex flex-col items-center justify-center h-full cursor-pointer hover:bg-gray-50 transition-colors">
-                                <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
-                                    <i className="fas fa-plus text-primary text-lg"></i>
-                                </div>
-                                <h3 className="font-medium text-primary text-base mb-2">创建新投票</h3>
-                                <p className="text-sm text-gray-500 text-center">
-                                    发起一个新的匿名投票
-                                </p>
+                        {loading ? (
+                            // 加载动画，可以根据项目风格调整
+                            <div className="col-span-3 flex justify-center items-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
                             </div>
-                        </Link>
+                        ) : (
+                            <>
+                                <Link href="/votes/create" passHref>
+                                    <div className="bg-white rounded-lg border border-gray-200 border-dashed p-6 flex flex-col items-center justify-center h-full cursor-pointer hover:bg-gray-50 transition-colors">
+                                        <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mb-4">
+                                            <i className="fas fa-plus text-primary text-lg"></i>
+                                        </div>
+                                        <h3 className="font-medium text-primary text-base mb-2">创建新投票</h3>
+                                        <p className="text-sm text-gray-500 text-center">
+                                            发起一个新的匿名投票
+                                        </p>
+                                    </div>
+                                </Link>
+                                {getFilteredVotes().map(votepool => (
+                                    <VoteCard key={votepool.id} vote={votepool} />
+                                ))}
+                            </>
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="active" className="mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {loading ? (
+                            <div className="col-span-3 flex justify-center items-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                            </div>
+                        ) : (
+                            getFilteredVotes().map(votepool => (
+                                <VoteCard key={votepool.id} vote={votepool} />
+                            ))
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="upcoming" className="mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {loading ? (
+                            <div className="col-span-3 flex justify-center items-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                            </div>
+                        ) : (
+                            getFilteredVotes().map(votepool => (
+                                <VoteCard key={votepool.id} vote={votepool} />
+                            ))
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="ended" className="mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {loading ? (
+                            <div className="col-span-3 flex justify-center items-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                            </div>
+                        ) : (
+                            getFilteredVotes().map(votepool => (
+                                <VoteCard key={votepool.id} vote={votepool} />
+                            ))
+                        )}
                     </div>
                 </TabsContent>
             </Tabs>

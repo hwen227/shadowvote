@@ -4,7 +4,6 @@ import { useEffect } from "react";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import { queryState, queryVoteBox } from "@/contracts/query";
 
 
 export default function HomePage() {
@@ -14,9 +13,7 @@ export default function HomePage() {
   useEffect(() => {
     // 这里可以添加一些初始化逻辑
     const fetchState = async () => {
-      const state = await queryVoteBox("0x340687813f1b782b6f7a34aa517fe7a3e33307663f16c31b786070001668a59a");
-      console.log(state);
-      console.log("Home page initialized");
+      console.log("initial")
     };
 
     fetchState();
@@ -48,6 +45,15 @@ export default function HomePage() {
           </button>
         </div>
 
+        <div className="mt-4">
+          <span
+            onClick={() => router.push('/votes')}
+            className="text-sm text-gray-500 underline cursor-pointer flex items-center justify-center"
+          >
+            {"探索投票池->"}
+          </span>
+        </div>
+
         <div className="mt-16">
           <h2 className="text-lg font-medium mb-6">特色功能</h2>
           <div className="flex flex-col md:flex-row justify-between text-left">
@@ -55,8 +61,8 @@ export default function HomePage() {
               <div className="text-primary mb-2">
                 <i className="fas fa-shield-alt text-xl"></i>
               </div>
-              <h3 className="font-medium mb-2">隐私保护</h3>
-              <p className="text-sm text-gray-600">您的投票选择将被加密保护，确保投票过程中的隐私安全</p>
+              <h3 className="font-medium mb-2">投票加密</h3>
+              <p className="text-sm text-gray-600">您的投票选择将被加密上传，确保投票过程中的隐私安全</p>
             </div>
             <div className="flex-1 px-4">
               <div className="text-primary mb-2">
