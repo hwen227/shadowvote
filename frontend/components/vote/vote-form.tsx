@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { SuiVotePool, VoteOption, WalrusVotePool } from "@/types";
+import { SuiInputVotePool, VoteOption, EncryptedInputVotePool, WalrusAttchFileBlob } from "@/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
     Card,
@@ -16,12 +16,14 @@ import {
     CardTitle
 } from "@/components/ui/card";
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
-import { encryptVotePool } from "@/contracts/seal";
-import { useUploadBlob } from "@/hooks/useUploadBlob";
+import * as sealUtils from "@/contracts/seal";
 import { suiClient } from "@/contracts";
-import { createVotePoolTx } from "@/contracts/transaction";
+import { createVotePoolTx, createVotePoolTx_woal } from "@/contracts/transaction";
 import { AllowlistManager } from "@/components/vote/allowlist-manager";
 import { findObjectTypeName } from "@/contracts/query";
+import { Transaction } from "@mysten/sui/transactions";
+import { FileUpload } from "@/components/vote/file-upload";
+import { useUploadBlob } from "@/hooks/useUploadBlob";
 
 // 表单步骤类型
 type FormStep = "basicInfo" | "options" | "time" | "permissions" | "confirmation";
@@ -59,6 +61,7 @@ interface VoteFormData {
         name: string;
         addressCount: number;
     } | null;
+    attachments: File[];
 }
 
 // 步骤配置
@@ -85,10 +88,9 @@ const STEPS: { [key in FormStep]: { title: string; description: string } } = {
     }
 };
 
-
-
 export function VoteForm() {
     const router = useRouter();
+    const { storeBlob } = useUploadBlob();
     const [currentStep, setCurrentStep] = useState<FormStep>("basicInfo");
     const [idPrefix, setIdPrefix] = useState<string>(generateRandomIdPrefix());
 
@@ -103,12 +105,12 @@ export function VoteForm() {
         endTime: "",
         permissionType: "all",
         selectedAllowlistId: "",
-        selectedAllowlistInfo: null
+        selectedAllowlistInfo: null,
+        attachments: []
     });
     const [isProcessing, setIsProcessing] = useState(false);
     const [processingStatus, setProcessingStatus] = useState("");
 
-    const { storeBlob } = useUploadBlob();
     const currentAccount = useCurrentAccount();
 
     // 当钱包地址改变时重置表单
@@ -129,7 +131,8 @@ export function VoteForm() {
             endTime: "",
             permissionType: "all",
             selectedAllowlistId: "",
-            selectedAllowlistInfo: null
+            selectedAllowlistInfo: null,
+            attachments: []
         });
         // 重置到第一步
         setCurrentStep("basicInfo");
@@ -223,7 +226,28 @@ export function VoteForm() {
         });
     };
 
-    const transformFormData = (): { suiVotePool: SuiVotePool, walrusVotePool: WalrusVotePool } => {
+    const uploadFilesToWalrus = async () => {
+        if (formData.attachments.length === 0) {
+            throw new Error("No attachments");
+        }
+        const walrusFiles: WalrusAttchFileBlob[] = [];
+        try {
+            for (const file of formData.attachments) {
+                const response = await storeBlob(file);
+                walrusFiles.push({
+                    blob_id: response.blobId,
+                    name: file.name
+                });
+            }
+            return walrusFiles;
+        } catch (error) {
+            console.error('文件上传失败:', error);
+            throw error;
+            return [];
+        }
+
+    }
+    const transformFormData = (): { suiVotePool: SuiInputVotePool, encryptInput: EncryptedInputVotePool } => {
         const start = new Date(formData.startTime).getTime();
         const end = new Date(formData.endTime).getTime();
 
@@ -233,39 +257,41 @@ export function VoteForm() {
             text: option.text
         }));
 
-        const walrusVotePool: WalrusVotePool = {
+
+        const encryptInput: EncryptedInputVotePool = {
             title: formData.title,
             description: formData.description,
-            options: options
+            options: options,
         }
 
-        const suiVotePool: SuiVotePool = {
-            id: { id: "" },
+
+
+        const suiVotePool: SuiInputVotePool = {
             title: formData.title,
-            creator: currentAccount?.address || "",
-            blob_id: "",
-            allowlist_id: formData.permissionType === "specific" ? formData.selectedAllowlistId : "",
-            votebox_id: "",
+            allowlist_Id: formData.permissionType === "specific" ? formData.selectedAllowlistId : "",
             start,
             end,
-            participantsCount: 0
+            details: ""
         }
 
-        return { suiVotePool, walrusVotePool };
+        return { suiVotePool, encryptInput };
     }
 
-    const encryptedAndStoreVotePoolToWalrus = async (walrusVotePool: WalrusVotePool) => {
+    const encryptVotePool = async (EncryptInput: EncryptedInputVotePool) => {
+
+        if (formData.permissionType !== "specific" && !formData.selectedAllowlistId) {
+            throw new Error("白名单ID不能为空");
+        }
+
         try {
             setProcessingStatus("投票池加密中...");
 
-            const { suiVotePool } = transformFormData();
-            const encryptedBytes = await encryptVotePool(walrusVotePool, suiVotePool.allowlist_id);
+            const allowlistId = formData.permissionType === "specific" ? formData.selectedAllowlistId : "";
+            const encryptedBytes = await sealUtils.encryptVotePool(EncryptInput, allowlistId);
 
-            const blobInfo = await storeBlob(encryptedBytes);
-
-            return blobInfo.blobId;
+            return encryptedBytes;
         } catch (error) {
-            console.error("加密和存储投票池失败:", error);
+            console.error(error);
             throw error;
         }
     }
@@ -273,13 +299,32 @@ export function VoteForm() {
     const handleCreateVotePool = async () => {
         try {
             setIsProcessing(true);
+            let tx = new Transaction();
+            let attchFiles: WalrusAttchFileBlob[] = [];
 
-            const { suiVotePool, walrusVotePool } = transformFormData();
-            const blobId = await encryptedAndStoreVotePoolToWalrus(walrusVotePool);
+            if (formData.attachments.length > 0) {
+                setProcessingStatus("正在将附件上传到Walrus...");
+                attchFiles = await uploadFilesToWalrus();
+                console.log('attchFiles', attchFiles);
+            }
 
-            suiVotePool.blob_id = blobId;
-
-            const tx = createVotePoolTx(suiVotePool);
+            if (formData.permissionType === "specific" && formData.selectedAllowlistId) {
+                const { suiVotePool, encryptInput } = transformFormData();
+                if (attchFiles.length > 0) {
+                    encryptInput.attch_file_blobs = attchFiles;
+                }
+                const encryptedBytes = await encryptVotePool(encryptInput);
+                suiVotePool.details = encryptedBytes;
+                tx = createVotePoolTx(suiVotePool);
+            } else {
+                const { suiVotePool, encryptInput } = transformFormData();
+                if (attchFiles.length > 0) {
+                    encryptInput.attch_file_blobs = attchFiles;
+                }
+                const Input = JSON.stringify(encryptInput);
+                suiVotePool.details = Input;
+                tx = createVotePoolTx_woal(suiVotePool);
+            }
 
             setProcessingStatus("正在提交至Sui区块链...");
 
@@ -287,15 +332,11 @@ export function VoteForm() {
                 transaction: tx.serialize(),
             }, {
                 onSuccess: async (result) => {
-
                     const createdObjects = [];
                     let voteId = "";
-                    let digest = result.digest;
+                    const digest = result.digest;
 
                     console.log('交易成功:', result);
-
-                    setIsProcessing(false);
-                    setProcessingStatus("");
 
                     if (result.effects && result.effects.created) {
                         for (const item of result.effects.created) {
@@ -304,12 +345,16 @@ export function VoteForm() {
 
                                 // 检查对象类型并分配ID
                                 const objectType = await findObjectTypeName(item.reference.objectId);
-                                if (objectType && objectType.includes('::shadowvote::VotePool')) {
-                                    voteId = item.reference.objectId;
+                                if (objectType) {
+                                    if (objectType.includes('::shadowvote::VotePool') || objectType.includes('::votepool_wo_al::VotePool_WOAl'))
+                                        voteId = item.reference.objectId;
                                 }
                             }
                         }
                     }
+
+                    setIsProcessing(false);
+                    setProcessingStatus("");
 
                     console.log('创建的对象ID:', createdObjects);
 
@@ -321,8 +366,6 @@ export function VoteForm() {
                         }).toString();
 
                         router.push(`/votes/create/success?${queryParams}`);
-                    } else {
-                        router.push("/votes/create/success");
                     }
                 },
                 onError: (error) => {
@@ -385,6 +428,10 @@ export function VoteForm() {
                         className="min-h-[100px]"
                     />
                 </div>
+
+                <FileUpload
+                    onFileSelect={(files) => setFormData({ ...formData, attachments: files })}
+                />
             </div>
 
             <div className="flex justify-between mt-6">
@@ -392,7 +439,7 @@ export function VoteForm() {
                     variant="outline"
                     onClick={() => router.push("/")}
                 >
-                    <i className="fas fa-times mr-2"></i> 取消
+                    <i className="fas fa-times mr-2"></i> 取消创建
                 </Button>
                 <Button onClick={goToNextStep}>
                     <i className="fas fa-arrow-right mr-2"></i> 下一步
@@ -566,7 +613,7 @@ export function VoteForm() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div>
-                                <div className="font-medium text-sm mb-2">投票选项:</div>
+                                <div className="font-bold text-sm mb-2">投票选项:</div>
                                 <ul className="list-none pl-2">
                                     {formData.options.map((option) => (
                                         <li key={option.id} className="text-sm mb-1">• {option.text || "空选项"}</li>
@@ -575,18 +622,31 @@ export function VoteForm() {
                             </div>
 
                             <div>
-                                <div className="font-medium text-sm mb-2">投票时间:</div>
+                                <div className="font-bold text-sm mb-2">投票时间:</div>
                                 <div className="text-sm">
                                     {formatDateTime(formData.startTime)} - {formatDateTime(formData.endTime)}
                                 </div>
                             </div>
 
                             <div>
-                                <div className="font-medium text-sm mb-2">参与权限:</div>
+                                <div className="font-bold text-sm mb-2">参与权限:</div>
                                 <div className="text-sm">
                                     {renderPermissionInfo()}
                                 </div>
                             </div>
+
+                            {formData.attachments.length > 0 && (
+                                <div>
+                                    <div className="font-bold text-sm mb-2">附件:</div>
+                                    <div className="space-y-1">
+                                        {formData.attachments.map((file, index) => (
+                                            <div key={index} className="text-sm">
+                                                {file.name} ({Math.round(file.size / 1024)} KB)
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </CardContent>
                     </Card>
 
@@ -596,7 +656,6 @@ export function VoteForm() {
                                 <i className="fas fa-exclamation-circle text-amber-500 mr-3 mt-1"></i>
                                 <div>
                                     <div className="font-medium text-sm mb-1">创建投票将消耗少量SUI代币作为燃料费</div>
-                                    <div className="text-xs text-gray-500">预估费用: 0.01 SUI</div>
                                 </div>
                             </div>
                         </CardContent>
@@ -673,3 +732,5 @@ export function VoteForm() {
         </div>
     );
 }
+
+

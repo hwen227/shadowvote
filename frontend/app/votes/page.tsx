@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { VoteCard } from "@/components/vote/vote-card";
-import { VoteStatus, VotePoolDisplayType, SuiVotePool } from "@/types";
+import { VoteStatus, VotePoolDisplayType, SuiResponseVotePool } from "@/types";
 import { useCurrentAccount } from "@mysten/dapp-kit";
 import { getMultiVotePools, getVotePoolState } from "@/contracts/query";
 
@@ -52,7 +52,7 @@ export default function VotesPage() {
         }
     };
 
-    const convertVotePoolToDisplayType = (votePool: SuiVotePool): VotePoolDisplayType => {
+    const convertVotePoolToDisplayType = (votePool: SuiResponseVotePool): VotePoolDisplayType => {
 
         const currentTime = Date.now();
         let status = VoteStatus.ENDED;
@@ -69,9 +69,6 @@ export default function VotesPage() {
             id: votePool.id.id,
             title: votePool.title,
             creator: votePool.creator,
-            blob_id: votePool.blob_id,
-            allowlist_id: votePool.allowlist_id,
-            votebox_id: votePool.votebox_id,
             start: votePool.start,
             end: votePool.end,
             participantsCount: votePool.participantsCount,

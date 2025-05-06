@@ -108,6 +108,25 @@ export function useUploadBlob(config: UploadBlobConfig = {}) {
         }
     }
 
+    const downloadBlobAsFile = async (blobId: string) => {
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 10000);
+            const response = await fetch(`${aggregatorUrl}/v1/blobs/${blobId}`);
+            clearTimeout(timeout);
+            if (!response.ok) {
+                throw new Error('Something went wrong when downloading the blob!');
+            }
+            return response.blob();
+        } catch (error) {
+            console.error('Error in downloadBlob:', error);
+            throw error;
+        }
+    }
+
+
+
+
     return {
         epochs,
         setEpochs,
@@ -118,6 +137,7 @@ export function useUploadBlob(config: UploadBlobConfig = {}) {
         aggregatorUrl,
         setAggregatorUrl,
         storeBlob,
-        downloadBlob
+        downloadBlob,
+        downloadBlobAsFile
     };
 } 

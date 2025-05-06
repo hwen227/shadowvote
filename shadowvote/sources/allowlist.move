@@ -3,14 +3,13 @@
 
 // Based on the allowlist pattern
 
+
 module shadowvote::allowlist;
 use std::vector;
-use shadowvote::shadowvote::{Self,VotePool};
-use shadowvote::utils::is_prefix;
 use std::string::{String};
+use shadowvote::utils::is_prefix;
 
 const EInvalidCap: u64 = 0;
-const EInvalidVotePool: u64 = 0;
 const ENoAccess: u64 = 1;
 const EDuplicate: u64 = 2;
 
@@ -108,13 +107,15 @@ fun approve_internal(caller: address, id: vector<u8>, allowlist: &Allowlist): bo
 entry fun seal_approve(
     id: vector<u8>,
     allowlist: &Allowlist,
-    votepool : &VotePool,
     ctx: &TxContext
 ) {
-    assert!(shadowvote::get_allow_list(votepool)==object::id(allowlist),EInvalidVotePool);
     assert!(approve_internal(ctx.sender(), id, allowlist), ENoAccess);
 }
 
 public(package) fun get_allowlist_id(cap :&Cap):ID{
     cap.allowlist_id
+}
+
+public(package) fun get_allowlist_list(allowlist :&Allowlist):vector<address>{
+    allowlist.list
 }

@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { SessionKey } from "@mysten/seal";
 import { fromHex } from "@mysten/sui/utils";
 import { Transaction } from "@mysten/sui/transactions";
-import { SuiVotePool, WalrusVotePool } from "@/types";
+import { SuiResponseVotePool, EncryptedInputVotePool } from "@/types";
 import { useUploadBlob } from "@/hooks/useUploadBlob";
 import { decryptVotePool, MoveCallConstructor } from "@/contracts/seal";
 import { networkConfig } from "@/contracts";
@@ -15,10 +15,10 @@ const showToast = (type: 'error' | 'success', message: string) => {
 };
 
 interface VoteDetailsProps {
-    votePoolObjectData: SuiVotePool | null;
+    votePoolObjectData: SuiResponseVotePool | null;
     voteId: string;
     sessionKey: SessionKey;
-    onDecryptSuccess: (decryptedData: WalrusVotePool) => void;
+    onDecryptSuccess: (decryptedData: EncryptedInputVotePool) => void;
 }
 
 export default function DecryptButton({ votePoolObjectData, voteId, sessionKey, onDecryptSuccess }: VoteDetailsProps) {

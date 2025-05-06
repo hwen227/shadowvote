@@ -1,12 +1,16 @@
+
+'use client'
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { encryptUserVote } from "@/contracts/seal";
-import { castVoteTx } from "@/contracts/transaction";
+import { castVoteTx as defaultCastVoteTx } from "@/contracts/transaction";
 import { suiClient } from "@/contracts";
-import { WalrusVotePool } from "@/types";
+import { EncryptedInputVotePool } from "@/types";
+import { Transaction } from "@mysten/sui/transactions";
+import { useRouter } from "next/navigation";
 
 // 创建简易toast通知组件
 const showToast = (type: 'error' | 'success', message: string) => {
@@ -17,12 +21,18 @@ const showToast = (type: 'error' | 'success', message: string) => {
 interface VoteCastProps {
     voteId: string;
     voteBoxId: string;
-    decryptedVotePoolData: WalrusVotePool;
+    decryptedVotePoolData: EncryptedInputVotePool;
+    customCastVoteTx?: (votePoolId: string, votebox: string, vote: Uint8Array) => Promise<Transaction>;
 }
 
-export default function VoteCast({ voteId, voteBoxId, decryptedVotePoolData }: VoteCastProps) {
+export default function VoteCast({
+    voteId,
+    voteBoxId,
+    decryptedVotePoolData,
+    customCastVoteTx
+}: VoteCastProps) {
     const [selectedOption, setSelectedOption] = useState<string>("");
-
+    const router = useRouter();
     const { mutate: signAndExecute } = useSignAndExecuteTransaction({
         execute: async ({ bytes, signature }) =>
             await suiClient.executeTransactionBlock({
@@ -35,8 +45,6 @@ export default function VoteCast({ voteId, voteBoxId, decryptedVotePoolData }: V
             }),
     });
 
-
-
     const handleSubmitVote = async () => {
         if (!selectedOption) {
             showToast('error', '请选择一个选项');
@@ -44,21 +52,20 @@ export default function VoteCast({ voteId, voteBoxId, decryptedVotePoolData }: V
         }
 
         try {
-            // 将selectedOption转换为数字
-            // const optionIndex = parseInt(selectedOption.replace(/[^0-9]/g, ''), 10);
-
-            const encryptedVote = await encryptUserVote(selectedOption, voteId);
-            //console.log(encryptedVote);
+            const encryptedVote = await encryptUserVote(selectedOption, voteBoxId);
 
             if (voteBoxId) {
-                const tx = await castVoteTx(voteId, voteBoxId, encryptedVote);
+                // 使用自定义的castVoteTx函数或默认的castVoteTx函数
+                const castVoteTxFunc = customCastVoteTx || defaultCastVoteTx;
+                const tx = await castVoteTxFunc(voteId, voteBoxId, encryptedVote);
+
                 signAndExecute({
                     transaction: tx.serialize(),
                 }, {
                     onSuccess: (result) => {
                         console.log('交易成功:', result);
                         showToast('success', '投票成功!');
-                        // router.push(`/votes/${voteId}/submit?option=${selectedOption}`);
+                        router.push(`/votes/${voteId}/submit`);
                     },
                     onError: (error) => {
                         console.error('交易失败:', error);
