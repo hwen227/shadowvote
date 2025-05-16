@@ -1,9 +1,9 @@
-
 'use client'
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { encryptUserVote } from "@/contracts/seal";
 import { castVoteTx as defaultCastVoteTx } from "@/contracts/transaction";
@@ -22,7 +22,7 @@ interface VoteCastProps {
     voteId: string;
     voteBoxId: string;
     decryptedVotePoolData: EncryptedInputVotePool;
-    customCastVoteTx?: (votePoolId: string, votebox: string, vote: Uint8Array) => Promise<Transaction>;
+    customCastVoteTx?: (votePoolId: string, votebox: string, vote: Uint8Array, isAnonymous: boolean) => Promise<Transaction>;
 }
 
 export default function VoteCast({
@@ -32,6 +32,7 @@ export default function VoteCast({
     customCastVoteTx
 }: VoteCastProps) {
     const [selectedOption, setSelectedOption] = useState<string>("");
+    const [isAnonymous, setIsAnonymous] = useState<boolean>(false);
     const router = useRouter();
     const { mutate: signAndExecute } = useSignAndExecuteTransaction({
         execute: async ({ bytes, signature }) =>
@@ -57,7 +58,7 @@ export default function VoteCast({
             if (voteBoxId) {
                 // 使用自定义的castVoteTx函数或默认的castVoteTx函数
                 const castVoteTxFunc = customCastVoteTx || defaultCastVoteTx;
-                const tx = await castVoteTxFunc(voteId, voteBoxId, encryptedVote);
+                const tx = await castVoteTxFunc(voteId, voteBoxId, encryptedVote, isAnonymous);
 
                 signAndExecute({
                     transaction: tx.serialize(),
@@ -112,6 +113,15 @@ export default function VoteCast({
                         })}
                     </div>
                 </RadioGroup>
+            </div>
+
+            <div className="flex items-center space-x-2 mb-4">
+                <Checkbox
+                    id="anonymous"
+                    checked={isAnonymous}
+                    onCheckedChange={(checked: boolean) => setIsAnonymous(checked)}
+                />
+                <Label htmlFor="anonymous">匿名投票</Label>
             </div>
 
             <div className="flex justify-center">

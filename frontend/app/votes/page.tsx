@@ -10,7 +10,7 @@ import { getMultiVotePools, getVotePoolState } from "@/contracts/query";
 
 
 export default function VotesPage() {
-    const [activeTab, setActiveTab] = useState<"all" | "active" | "upcoming" | "ended">("all");
+    const [activeTab, setActiveTab] = useState<"all" | "active" | "upcoming" | "ended" | "my">("all");
     const [votepools, setVotepools] = useState<VotePoolDisplayType[]>([]);
     const [loading, setLoading] = useState(true);
     const currentAccount = useCurrentAccount();
@@ -47,6 +47,8 @@ export default function VotesPage() {
                 return votepools.filter(vote => vote.status === VoteStatus.UPCOMING);
             case "ended":
                 return votepools.filter(vote => vote.status === VoteStatus.ENDED);
+            case "my":
+                return votepools.filter(vote => vote.creator === currentAccount?.address);
             default:
                 return votepools;
         }
@@ -86,6 +88,7 @@ export default function VotesPage() {
                     <TabsTrigger value="active">进行中</TabsTrigger>
                     <TabsTrigger value="upcoming">即将开始</TabsTrigger>
                     <TabsTrigger value="ended">已结束</TabsTrigger>
+                    <TabsTrigger value="my">我的投票</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="all" className="mt-0">
@@ -145,6 +148,20 @@ export default function VotesPage() {
                 </TabsContent>
 
                 <TabsContent value="ended" className="mt-0">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {loading ? (
+                            <div className="col-span-3 flex justify-center items-center py-12">
+                                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+                            </div>
+                        ) : (
+                            getFilteredVotes().map(votepool => (
+                                <VoteCard key={votepool.id} vote={votepool} />
+                            ))
+                        )}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="my" className="mt-0">
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                         {loading ? (
                             <div className="col-span-3 flex justify-center items-center py-12">

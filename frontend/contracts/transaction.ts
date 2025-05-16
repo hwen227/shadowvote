@@ -118,7 +118,7 @@ export const allowListMultiRemove = async (tx: Transaction, allowlistId: string,
     return tx;
 }
 
-export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint8Array) => {
+export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint8Array, is_anonymous: boolean) => {
     const tx = new Transaction();
 
     tx.moveCall({
@@ -127,6 +127,7 @@ export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint
             tx.object(votePoolId),
             tx.object(votebox),
             tx.pure.vector('u8', vote),
+            tx.pure.bool(is_anonymous),
             tx.object("0x6"),
         ]
     })
@@ -134,7 +135,7 @@ export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint
     return tx;
 }
 
-export const castVoteTx_woal = async (votePoolId: string, votebox: string, vote: Uint8Array) => {
+export const castVoteTx_woal = async (votePoolId: string, votebox: string, vote: Uint8Array, is_anonymous: boolean) => {
     const tx = new Transaction();
 
     tx.moveCall({
@@ -143,6 +144,7 @@ export const castVoteTx_woal = async (votePoolId: string, votebox: string, vote:
             tx.object(votePoolId),
             tx.object(votebox),
             tx.pure.vector('u8', vote),
+            tx.pure.bool(is_anonymous),
             tx.object("0x6"),
         ]
     })

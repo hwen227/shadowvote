@@ -11,7 +11,7 @@ public struct EncryptedVoteBox has key{
 
 public struct EncryptedVote has store, copy, drop{
     voter : address,
-    vote : vector<u8>
+    vote : vector<u8>,
 }
 
 public(package) fun create_votebox(ctx : &mut TxContext):ID{

@@ -17,6 +17,16 @@ import { SuiResponseVotePool, VoteOption } from "@/types";
 import { decryptVoteResult, MoveCallConstructor } from "@/contracts/seal";
 import { SessionKey } from "@mysten/seal";
 
+// 添加处理投票者显示的函数
+const getVoterDisplay = (voter: string) => {
+    // 检查是否为匿名地址
+    if (voter === "0x0000000000000000000000000000000000000000000000000000000000000123") {
+        return "anonymous address";
+    }
+    // 其他地址显示缩略形式
+    return `${voter.slice(0, 6)}...${voter.slice(-4)}`;
+};
+
 interface VoteResultProps {
     votePool: SuiResponseVotePool;
     options: VoteOption[];
@@ -55,6 +65,8 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
             console.log("开始解密投票结果");
             const encryptedVoteBoxData = await queryVoteBox(votePool.votebox_id);
             const results = await decryptVoteResult(sessionKey, encryptedVoteBoxData, customMoveCall);
+
+            console.log("result", results);
 
             console.log("results", results);
 
@@ -170,8 +182,8 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
                                 <ScrollArea className="h-[400px] w-full rounded-md border p-4">
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center py-2 border-b border-b-2 font-medium text-sm text-gray-500">
-                                            <div>投票地址</div>
-                                            <div>投票选择</div>
+                                            <div className="w-[200px]">投票地址</div>
+                                            <div className="flex-1">投票选择</div>
                                         </div>
                                         {decryptedVoteResults
                                             .filter(result => result.vote !== null)
@@ -179,10 +191,10 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
                                                 const votedOption = options.find(opt => opt.id === result.vote);
                                                 return (
                                                     <div key={index} className="flex justify-between items-center py-2 border-b">
-                                                        <div className="text-sm font-mono truncate max-w-[200px]" title={result.voter}>
-                                                            {result.voter.slice(0, 6)}...{result.voter.slice(-4)}
+                                                        <div className="text-sm font-mono truncate w-[200px]" title={result.voter}>
+                                                            {getVoterDisplay(result.voter)}
                                                         </div>
-                                                        <div className="text-sm">
+                                                        <div className="text-sm flex-1">
                                                             <span className="font-medium">{votedOption?.text || '未知选项'}</span>
                                                         </div>
                                                     </div>

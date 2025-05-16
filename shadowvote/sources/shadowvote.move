@@ -3,7 +3,7 @@ module shadowvote::shadowvote;
 use std::string::{String};
 use std::vector;
 use shadowvote::allowlist::{Allowlist};
-use shadowvote::votebox::{Self,EncryptedVoteBox};
+use shadowvote::votebox::{Self,EncryptedVoteBox,EncryptedVote};
 
 use sui::clock::{Self,Clock};
 use sui::event;
@@ -130,6 +130,7 @@ public fun cast_vote(
     vote_pool: &mut VotePool,
     votebox : &mut EncryptedVoteBox,
     vote: vector<u8>,
+    is_anon : bool,
     clock : &Clock,
     ctx: &TxContext,
 ){
@@ -139,8 +140,12 @@ public fun cast_vote(
     assert!(clock::timestamp_ms(clock)>=vote_pool.start,EVoteNotStart);
     assert!(vote_pool.votebox_id==object::id(votebox),EInvalidVote);
     assert!(!votebox::has_voted(votebox,voter),EDuplicateVote);
-    let vote = votebox::create_encrypted_vote(voter,vote);
-    votebox::add_vote(votebox,vote);
+
+    let encrypt_vote : EncryptedVote;
+    if(is_anon) {encrypt_vote = votebox::create_encrypted_vote(@0x123,vote);}
+    else encrypt_vote = votebox::create_encrypted_vote(voter,vote);
+
+    votebox::add_vote(votebox,encrypt_vote);
     let count = vote_pool.participantsCount;
     vote_pool.participantsCount = count+ 1;
 }

@@ -88,30 +88,31 @@ export function VoteCard({ vote }: VoteCardProps) {
     };
 
     return (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm relative p-4">
+        <div className="bg-white rounded-lg border border-gray-200 shadow-sm relative p-4 min-h-[220px] flex flex-col">
             <div className="absolute top-3 right-3">
                 <Badge variant={badgeVariant}>{statusText}</Badge>
             </div>
 
-            <div className="text-center mb-4 mt-6">
+            <div className="text-center flex-grow mb-4 mt-6">
                 <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-2">
                     <i className={`fas fa-${icon} text-primary text-lg`}></i>
                 </div>
-                <h3 className="font-medium text-base mb-1">{vote.title}</h3>
+                <h3 className="font-medium text-base mb-1 line-clamp-2">{vote.title}</h3>
                 <div className="text-xs text-gray-500">
                     <i className="fas fa-users mr-1"></i> {vote.participantsCount}人参与
                 </div>
             </div>
 
-
-            <Link href={getLinkHref()} passHref>
-                <Button
-                    variant={buttonProps.variant}
-                    className="w-full"
-                >
-                    <i className={`fas fa-${buttonProps.icon} mr-2`}></i> {buttonProps.text}
-                </Button>
-            </Link>
+            <div className="mt-auto">
+                <Link href={getLinkHref()} passHref>
+                    <Button
+                        variant={buttonProps.variant}
+                        className="w-full"
+                    >
+                        <i className={`fas fa-${buttonProps.icon} mr-2`}></i> {buttonProps.text}
+                    </Button>
+                </Link>
+            </div>
         </div>
     );
 } 
