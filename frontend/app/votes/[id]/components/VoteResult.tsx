@@ -2,24 +2,40 @@
 
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback, useRef } from "react";
+import {
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 import { queryVoteBox } from "@/contracts/query";
 import { useCurrentAccount } from "@mysten/dapp-kit";
-import { SuiVotePool, VoteOption } from "@/types";
-import { MoveCallConstructor, test_decrptedVoteBox } from "@/contracts/seal";
+import { SuiResponseVotePool, VoteOption } from "@/types";
+import { decryptVoteResult, MoveCallConstructor } from "@/contracts/seal";
 import { SessionKey } from "@mysten/seal";
-import { networkConfig } from "@/contracts";
-import { fromHex } from "@mysten/sui/utils";
-import { Transaction } from "@mysten/sui/transactions";
+
+// 添加处理投票者显示的函数
+const getVoterDisplay = (voter: string) => {
+    // 检查是否为匿名地址
+    if (voter === "0x0000000000000000000000000000000000000000000000000000000000000123") {
+        return "anonymous address";
+    }
+    // 其他地址显示缩略形式
+    return `${voter.slice(0, 6)}...${voter.slice(-4)}`;
+};
 
 interface VoteResultProps {
-    votePool: SuiVotePool;
+    votePool: SuiResponseVotePool;
     options: VoteOption[];
     sessionKey: SessionKey;
+    customMoveCall: MoveCallConstructor;
 }
 
-export default function VoteResult({ votePool, options, sessionKey }: VoteResultProps) {
-    const [decryptedVoteResults, setDecryptedVoteResults] = useState<string[]>([]);
+export default function VoteResult({ votePool, options, sessionKey, customMoveCall }: VoteResultProps) {
+    const [decryptedVoteResults, setDecryptedVoteResults] = useState<{ voter: string; vote: string | null }[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDecrypted, setIsDecrypted] = useState(false);
     // 添加ref来跟踪解密状态，防止重复执行
@@ -27,18 +43,6 @@ export default function VoteResult({ votePool, options, sessionKey }: VoteResult
 
     const currentAccount = useCurrentAccount();
 
-    const constructMoveCall = (voteId: string): MoveCallConstructor => {
-        return (tx: Transaction, id: string) => {
-            tx.moveCall({
-                target: `${networkConfig.testnet.variables.packageID}::shadowvote::seal_approve`,
-                arguments: [
-                    tx.pure.vector('u8', fromHex(id)),
-                    tx.object(voteId),
-                    tx.object('0x6')
-                ]
-            })
-        }
-    }
 
     // 定义解密函数
     const downloadAndDecryptVoteData = useCallback(async () => {
@@ -59,24 +63,29 @@ export default function VoteResult({ votePool, options, sessionKey }: VoteResult
 
         try {
             console.log("开始解密投票结果");
-            // 使用提供的会话密钥
-            const moveCall = constructMoveCall(votePool.id.id);
             const encryptedVoteBoxData = await queryVoteBox(votePool.votebox_id);
-            const results = await test_decrptedVoteBox(sessionKey, encryptedVoteBoxData, moveCall);
+            const results = await decryptVoteResult(sessionKey, encryptedVoteBoxData, customMoveCall);
 
-            if (results && results.length > 0) {
-                setDecryptedVoteResults(results);
-                setIsDecrypted(true);
+            console.log("result", results);
+
+            console.log("results", results);
+
+            if (!results) {
+                throw new Error('解密结果为空');
             }
 
+            setDecryptedVoteResults(results);
+            setIsDecrypted(true);
             setIsLoading(false);
         } catch (error) {
             console.error('解密失败:', error);
+            setDecryptedVoteResults([]);
+            setIsDecrypted(false);
             setIsLoading(false);
         } finally {
             isDecrypting.current = false;
         }
-    }, [currentAccount, sessionKey, votePool]);
+    }, [currentAccount, sessionKey, votePool, customMoveCall]);
 
     // 当组件加载或依赖项变化时自动执行解密
     useEffect(() => {
@@ -116,12 +125,11 @@ export default function VoteResult({ votePool, options, sessionKey }: VoteResult
         });
 
         // 统计每个选项的投票数
-        decryptedVoteResults.forEach(voteIndex => {
-            // voteIndex是选项的索引，我们需要找到对应的选项
-            // 根据选项id的格式 xxx_n 查找索引n匹配的选项
-            const matchedOption = options.find(opt => {
-                return opt.id === voteIndex;
-            });
+        decryptedVoteResults.forEach(({ vote }) => {
+            if (!vote) return; // 跳过解密失败的投票
+
+            // 根据选项id查找匹配的选项
+            const matchedOption = options.find(opt => opt.id === vote);
 
             if (matchedOption) {
                 const currentCount = voteCounts.get(matchedOption.id) || 0;
@@ -137,7 +145,7 @@ export default function VoteResult({ votePool, options, sessionKey }: VoteResult
     };
 
     const optionsWithVotes = isDecrypted ? calculateVoteCounts() : [];
-    const totalVotes = decryptedVoteResults.length;
+    const totalVotes = decryptedVoteResults.filter(result => result.vote !== null).length;
 
     return (
         <div className="container max-w-3xl mx-auto px-4 py-8">
@@ -161,7 +169,42 @@ export default function VoteResult({ votePool, options, sessionKey }: VoteResult
                 </div>
             ) : (
                 <div className="mt-6">
-                    <h3 className="text-lg font-medium mb-4">投票结果 ({totalVotes} 票)</h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-lg font-medium">投票结果 ({totalVotes} 票)</h3>
+                        <Dialog>
+                            <DialogTrigger asChild>
+                                <Button variant="outline">查看投票详情</Button>
+                            </DialogTrigger>
+                            <DialogContent className="max-w-2xl">
+                                <DialogHeader>
+                                    <DialogTitle>投票详情列表</DialogTitle>
+                                </DialogHeader>
+                                <ScrollArea className="h-[400px] w-full rounded-md border p-4">
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center py-2 border-b border-b-2 font-medium text-sm text-gray-500">
+                                            <div className="w-[200px]">投票地址</div>
+                                            <div className="flex-1">投票选择</div>
+                                        </div>
+                                        {decryptedVoteResults
+                                            .filter(result => result.vote !== null)
+                                            .map((result, index) => {
+                                                const votedOption = options.find(opt => opt.id === result.vote);
+                                                return (
+                                                    <div key={index} className="flex justify-between items-center py-2 border-b">
+                                                        <div className="text-sm font-mono truncate w-[200px]" title={result.voter}>
+                                                            {getVoterDisplay(result.voter)}
+                                                        </div>
+                                                        <div className="text-sm flex-1">
+                                                            <span className="font-medium">{votedOption?.text || '未知选项'}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                </ScrollArea>
+                            </DialogContent>
+                        </Dialog>
+                    </div>
                     <div className="space-y-4">
                         {optionsWithVotes.map((option) => {
                             const percentage = totalVotes > 0 ? Math.round((option.voteCount! / totalVotes) * 100) : 0;

@@ -3,18 +3,19 @@ import { Button } from "@/components/ui/button";
 import { SessionKey } from "@mysten/seal";
 import { fromHex } from "@mysten/sui/utils";
 import { Transaction } from "@mysten/sui/transactions";
-import { SuiVotePool, WalrusVotePool } from "@/types";
+import { SuiResponseVotePool, EncryptedInputVotePool } from "@/types";
 import { useUploadBlob } from "@/hooks/useUploadBlob";
 import { decryptVotePool, MoveCallConstructor } from "@/contracts/seal";
 import { networkConfig } from "@/contracts";
 import { formatAddress } from "@/lib/utils";
+import { FilePreview } from "@/components/vote/file-preview";
 
 interface VoteDecryptedDetailsProps {
-    votePoolObjectData: SuiVotePool | null;
+    votePoolObjectData: SuiResponseVotePool | null;
     voteId: string;
     sessionKey: SessionKey | null;
-    decryptedVotePoolData: WalrusVotePool | null;
-    onDecryptSuccess: (decryptedData: WalrusVotePool) => void;
+    decryptedVotePoolData: EncryptedInputVotePool | null;
+    onDecryptSuccess: (decryptedData: EncryptedInputVotePool) => void;
 }
 
 export default function VoteDecryptedDetails({
@@ -30,14 +31,13 @@ export default function VoteDecryptedDetails({
     // 添加一个ref来跟踪是否正在解密，防止多次执行
     const isDecrypting = useRef(false);
 
-    const constructMoveCall = (allowlistId: string, voteId: string): MoveCallConstructor => {
+    const constructMoveCall = (allowlistId: string): MoveCallConstructor => {
         return (tx: Transaction, id: string) => {
             tx.moveCall({
                 target: `${networkConfig.testnet.variables.packageID}::allowlist::seal_approve`,
                 arguments: [
                     tx.pure.vector('u8', fromHex(id)),
                     tx.object(allowlistId),
-                    tx.object(voteId)
                 ]
             });
         };
@@ -63,8 +63,11 @@ export default function VoteDecryptedDetails({
 
         console.log("正在执行中");
         try {
-            const moveCall = constructMoveCall(votePoolObjectData.allowlist_id, voteId);
-            const downloadBytes = await downloadBlob(votePoolObjectData.blob_id);
+            if (!votePoolObjectData.allowlist_id) {
+                throw new Error("无效的allowlist_id");
+            }
+            const moveCall = constructMoveCall(votePoolObjectData.allowlist_id);
+            const downloadBytes = await votePoolObjectData.details as Uint8Array;
             const decryptedData = await decryptVotePool(sessionKey, downloadBytes, moveCall);
 
             if (!decryptedData) {
@@ -136,14 +139,23 @@ export default function VoteDecryptedDetails({
 
     // 已解密，显示详细信息
     return (
-        <div className="mb-8">
-            <p className="text-gray-700 mb-4">{decryptedVotePoolData.description}</p>
+        <>
+            <div className="mb-8">
+                <p className="text-gray-700 mb-4">{decryptedVotePoolData.description}</p>
 
-            <div className="text-sm text-gray-500 space-y-1 mb-6">
-                <div><i className="fas fa-user mr-2"></i> 创建者: {formatAddress(votePoolObjectData?.creator || '')}</div>
-                <div><i className="fas fa-users mr-2"></i> 已有 {votePoolObjectData?.participantsCount || 0} 人参与</div>
-                <div><i className="fas fa-link mr-2"></i> Object ID: {voteId}</div>
+                <div className="text-sm text-gray-500 space-y-1 mb-6">
+                    <div><i className="fas fa-user mr-2"></i> 创建者: {formatAddress(votePoolObjectData?.creator || '')}</div>
+                    <div><i className="fas fa-users mr-2"></i> 已有 {votePoolObjectData?.participantsCount || 0} 人参与</div>
+                    <div><i className="fas fa-clock mr-2"></i> 开始时间: {new Date(Number(votePoolObjectData?.start || 0)).toLocaleString('zh-CN')}</div>
+                    <div><i className="fas fa-hourglass-end mr-2"></i> 结束时间: {new Date(Number(votePoolObjectData?.end || 0)).toLocaleString('zh-CN')}</div>
+                    <div><i className="fas fa-link mr-2"></i>Object ID: {voteId}</div>
+                </div>
             </div>
-        </div>
+
+            {decryptedVotePoolData.attch_file_blobs && decryptedVotePoolData.attch_file_blobs.length > 0 && (
+                <FilePreview files={decryptedVotePoolData.attch_file_blobs} />
+            )}
+
+        </>
     );
 } 

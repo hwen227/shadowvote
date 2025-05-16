@@ -23,16 +23,7 @@ export default function HomePage() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="text-center py-12">
-        <div className="mx-auto mb-4">
-          <Image
-            src="/sui-logo.png"
-            alt="Sui Logo"
-            width={80}
-            height={80}
-            className="mx-auto"
-          />
-        </div>
-        <h1 className="text-2xl font-semibold mb-4 text-primary">匿名投票工具</h1>
+        <h1 className="text-2xl font-semibold mb-4 text-primary">加密投票工具</h1>
         <p className="text-gray-500 mb-8">基于区块链技术的隐私保护投票平台</p>
 
         <div className="inline-block">

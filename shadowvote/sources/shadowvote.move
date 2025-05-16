@@ -2,17 +2,16 @@
 module shadowvote::shadowvote;
 use std::string::{String};
 use std::vector;
+use shadowvote::allowlist::{Allowlist};
+use shadowvote::votebox::{Self,EncryptedVoteBox,EncryptedVote};
 
 use sui::clock::{Self,Clock};
 use sui::event;
 use sui::table;
 use sui::table::Table;
-use shadowvote::utils::is_prefix;
 
-const EInvalidVotePool :u64 = 0;
-const EUnauthorizedAccess : u64 = 1;
+
 const EInvalidVote: u64 = 2;
-//const EVoteNotDone: u64 = 3;
 const EVoteNotStart: u64 = 3;
 const EAlreadyFinalized: u64 = 4;
 const EDuplicateVote:u64 =5 ;
@@ -27,7 +26,7 @@ public struct StateCap has key{
 }
 public struct VotePool has key{
     id: UID,
-    blob_id : String,
+    details : vector<u8>,
     allowlist_id: ID,
     title: String,
     creator : address,
@@ -36,17 +35,6 @@ public struct VotePool has key{
     votebox_id : ID,
     participantsCount :u64,
 }
-
-public struct EncryptedVoteBox has key{
-    id: UID,
-    votes : vector<EncryptedVote>
-}
-
-public struct EncryptedVote has store, copy, drop{
-    voter : address,
-    vote : vector<u8>
-}
-
 
 public struct VotePoolCreated has copy,drop{
     creator : address,
@@ -74,17 +62,17 @@ fun init(ctx: &mut TxContext){
 
 public fun create_vote_pool_entry(
     state : &mut State,
-    blob_id: String,
-    allowlist: ID,
+    details: vector<u8>,
+    allowlist: &Allowlist,
     title: String,
     start: u64,
     end: u64,
     ctx: &mut TxContext)
 {
     let votepool = create_vote_pool(
-        blob_id,
         allowlist,
         title,
+        details,
         start,
         end,
         ctx
@@ -110,22 +98,23 @@ public fun create_vote_pool_entry(
 }
 
 public fun create_vote_pool(
-    blob_id: String,
-    allowlist_id: ID,
+    allowlist: &Allowlist,
     title: String,
+    details: vector<u8>,
     start: u64,
     end: u64,
     ctx: &mut TxContext
 ):VotePool{
     assert!(start < end);
 
-    let votes_uid = object::new(ctx);
-    let votebox_id = object::uid_to_inner(&votes_uid);
+    let votebox_id= votebox::create_votebox(ctx);
+    // let votes_uid = object::new(ctx);
+    // let votebox_id = object::uid_to_inner(&votes_uid);
     let creator =  tx_context::sender(ctx);
     let votepool = VotePool {
         id: object::new(ctx),
-        blob_id,
-        allowlist_id,
+        details,
+        allowlist_id: object::id(allowlist),
         title,
         creator,
         start,
@@ -134,11 +123,6 @@ public fun create_vote_pool(
         participantsCount: 0
     };
 
-    let votebox = EncryptedVoteBox {
-        id : votes_uid,
-        votes : vector::empty()
-    };
-    transfer::share_object(votebox);
     votepool
 }
 
@@ -146,6 +130,7 @@ public fun cast_vote(
     vote_pool: &mut VotePool,
     votebox : &mut EncryptedVoteBox,
     vote: vector<u8>,
+    is_anon : bool,
     clock : &Clock,
     ctx: &TxContext,
 ){
@@ -154,63 +139,37 @@ public fun cast_vote(
     assert!(clock::timestamp_ms(clock)<=vote_pool.end,EAlreadyFinalized);
     assert!(clock::timestamp_ms(clock)>=vote_pool.start,EVoteNotStart);
     assert!(vote_pool.votebox_id==object::id(votebox),EInvalidVote);
-    assert!(!has_voted(votebox,voter),EDuplicateVote);
-    let vote = EncryptedVote{
-        voter,
-        vote
-    };
-    vector::push_back<EncryptedVote>(&mut votebox.votes,vote);
+    assert!(!votebox::has_voted(votebox,voter),EDuplicateVote);
+
+    let encrypt_vote : EncryptedVote;
+    if(is_anon) {encrypt_vote = votebox::create_encrypted_vote(@0x123,vote);}
+    else encrypt_vote = votebox::create_encrypted_vote(voter,vote);
+
+    votebox::add_vote(votebox,encrypt_vote);
     let count = vote_pool.participantsCount;
     vote_pool.participantsCount = count+ 1;
 }
 
-entry fun seal_approve(id: vector<u8>, vote_pool : &VotePool,clock :&Clock,ctx: &TxContext) {
-    assert!(approve_internal(tx_context::sender(ctx),id,vote_pool,clock),EUnauthorizedAccess);
-}
-
-
 //==============================================================================================
 // Helper Functions
 //==============================================================================================
-fun namespace(votepool: &VotePool): vector<u8> {
-    votepool.id.to_bytes()
 
-}
-
-//only the creator can see the result before vote end
-fun approve_internal(caller: address, id: vector<u8>, votepool: &VotePool,clock : &Clock): bool {
-
-    let namespace = namespace(votepool);
-    if (!is_prefix(namespace, id)) {
-        return false
-    };
-    if(clock::timestamp_ms(clock)>= votepool.end||caller==votepool.creator){
-        return true
-    };
-    false
-}
-
-public(package) fun get_allow_list(votepool :&VotePool):ID{
-    votepool.allowlist_id
-}
 
 public(package) fun get_vote_creator(vote_pool: &VotePool):address{
     vote_pool.creator
 }
 
-fun has_voted(votebox: &EncryptedVoteBox, voter: address): bool {
-    let mut i = 0;
-    let len = vector::length(&votebox.votes);
 
-    while (i < len) {
-        let vote = vector::borrow(&votebox.votes, i);
-        if (vote.voter == voter) {
-            return true
-        };
-        i = i + 1;
-    };
-
-    false
+public(package) fun if_contains_sender(state: &State,sender:address):bool{
+    table::contains<address,vector<ID>>(&state.creator_votepool,sender)
 }
 
+public(package) fun add_new_user_vote_pool(state: &mut State,sender: address,pool_id : ID){
+    let pools = vector::singleton(pool_id);
+    table::add(&mut state.creator_votepool, sender, pools);
+}
 
+public(package) fun add_vote_pool(state: &mut State,sender: address,pool_id : ID){
+    let map = table::borrow_mut<address,vector<ID>>(&mut state.creator_votepool,sender);
+    vector::push_back(map,pool_id);
+}

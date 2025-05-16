@@ -1,8 +1,12 @@
-import { SuiVotePool } from "@/types"
+import { SuiInputVotePool } from "@/types"
 import { Transaction } from "@mysten/sui/transactions"
 import { networkConfig } from "."
 
-export const createVotePoolTx = (votepool: SuiVotePool): Transaction => {
+export const createVotePoolTx = (votepool: SuiInputVotePool): Transaction => {
+
+    if (!(votepool.details instanceof Uint8Array) || !votepool.allowlist_Id) {
+        throw new Error("Invalid vote pool data");
+    }
     const tx = new Transaction();
 
     tx.moveCall({
@@ -11,8 +15,31 @@ export const createVotePoolTx = (votepool: SuiVotePool): Transaction => {
         function: "create_vote_pool_entry",
         arguments: [
             tx.object(networkConfig.testnet.variables.stateID),
-            tx.pure.string(votepool.blob_id),
-            tx.pure.id(votepool.allowlist_id),
+            tx.pure.vector('u8', votepool.details),
+            tx.object(votepool.allowlist_Id),
+            tx.pure.string(votepool.title),
+            tx.pure.u64(votepool.start),
+            tx.pure.u64(votepool.end),
+        ]
+    })
+
+    return tx;
+}
+
+export const createVotePoolTx_woal = (votepool: SuiInputVotePool): Transaction => {
+
+    if (typeof votepool.details !== 'string') {
+        throw new Error("Invalid vote pool data");
+    }
+    const tx = new Transaction();
+
+    tx.moveCall({
+        package: networkConfig.testnet.variables.packageID,
+        module: "votepool_wo_al",
+        function: "create_vote_pool_entry",
+        arguments: [
+            tx.object(networkConfig.testnet.variables.stateID),
+            tx.pure.string(votepool.details),
             tx.pure.string(votepool.title),
             tx.pure.u64(votepool.start),
             tx.pure.u64(votepool.end),
@@ -91,7 +118,7 @@ export const allowListMultiRemove = async (tx: Transaction, allowlistId: string,
     return tx;
 }
 
-export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint8Array) => {
+export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint8Array, is_anonymous: boolean) => {
     const tx = new Transaction();
 
     tx.moveCall({
@@ -100,6 +127,24 @@ export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint
             tx.object(votePoolId),
             tx.object(votebox),
             tx.pure.vector('u8', vote),
+            tx.pure.bool(is_anonymous),
+            tx.object("0x6"),
+        ]
+    })
+
+    return tx;
+}
+
+export const castVoteTx_woal = async (votePoolId: string, votebox: string, vote: Uint8Array, is_anonymous: boolean) => {
+    const tx = new Transaction();
+
+    tx.moveCall({
+        target: `${networkConfig.testnet.variables.packageID}::votepool_wo_al::cast_vote`,
+        arguments: [
+            tx.object(votePoolId),
+            tx.object(votebox),
+            tx.pure.vector('u8', vote),
+            tx.pure.bool(is_anonymous),
             tx.object("0x6"),
         ]
     })

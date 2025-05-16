@@ -1,4 +1,4 @@
-import { SuiEncryptedVoteType, WalrusVotePool } from "@/types";
+import { SuiEncryptedVoteType, EncryptedInputVotePool } from "@/types";
 
 import { toHex } from "@mysten/sui/utils";
 import { fromHex } from "@mysten/sui/utils";
@@ -13,12 +13,12 @@ export const constructMoveCall = (packageId: string, allowlistId: string): MoveC
     return (tx: Transaction, id: string) => {
         tx.moveCall({
             target: `${packageId}::allowlist::seal_approve`,
-            arguments: [tx.pure.vector('u8', fromHex(id)), tx.object(allowlistId)],
+            arguments: [tx.pure.vector('u8', fromHex(id)), tx.object(allowlistId), tx.pure.string("")],
         });
     };
 }
 
-export const encryptVotePool = async (votePool: WalrusVotePool, allowlistID: string): Promise<Uint8Array> => {
+export const encryptVotePool = async (votePool: EncryptedInputVotePool, allowlistID: string): Promise<Uint8Array> => {
     const nonce = crypto.getRandomValues(new Uint8Array(5));
     const policyObjectBytes = fromHex(allowlistID);
     const id = toHex(new Uint8Array([...policyObjectBytes, ...nonce]));
@@ -36,9 +36,9 @@ export const encryptVotePool = async (votePool: WalrusVotePool, allowlistID: str
     return encryptedBytes;
 }
 
-export const encryptUserVote = async (option: string, voteID: string): Promise<Uint8Array> => {
+export const encryptUserVote = async (option: string, voteboxID: string): Promise<Uint8Array> => {
     const nonce = crypto.getRandomValues(new Uint8Array(5));
-    const policyObjectBytes = fromHex(voteID);
+    const policyObjectBytes = fromHex(voteboxID);
     const id = toHex(new Uint8Array([...policyObjectBytes, ...nonce]));
 
     const encoder = new TextEncoder();
@@ -54,7 +54,7 @@ export const encryptUserVote = async (option: string, voteID: string): Promise<U
     return encryptedBytes;
 }
 
-export const decryptVotePool = async (sessionKey: SessionKey, encryptedData: ArrayBuffer, moveCallConstructor: MoveCallConstructor) => {
+export const decryptVotePool = async (sessionKey: SessionKey, encryptedData: Uint8Array, moveCallConstructor: MoveCallConstructor) => {
 
     const fullId = EncryptedObject.parse(new Uint8Array(encryptedData)).id;
 
@@ -85,7 +85,7 @@ export const decryptVotePool = async (sessionKey: SessionKey, encryptedData: Arr
 }
 
 
-const decodeVotePool = (data: Uint8Array): WalrusVotePool => {
+const decodeVotePool = (data: Uint8Array): EncryptedInputVotePool => {
     try {
         // 将Uint8Array转换为文本
         const decoder = new TextDecoder();
@@ -94,18 +94,81 @@ const decodeVotePool = (data: Uint8Array): WalrusVotePool => {
         // 解析JSON字符串成对象
         const votePoolData = JSON.parse(jsonString);
 
-        return votePoolData as WalrusVotePool;
+        return votePoolData as EncryptedInputVotePool;
     } catch (error) {
         console.error("解码VotePool失败:", error);
         throw new Error("无法解码VotePool数据");
     }
 };
 
-// const decrptedVoteBox = async (voteBoxData: SuiEncryptedVoteType[]) => {
-//     const validVotes = voteBoxData.filter((vote) => {
-//         vote.voter is Uint16Array
-//     }
-// }
+export const decryptVoteResult = async (sessionKey: SessionKey, voteBoxData: SuiEncryptedVoteType[], moveCallConstructor: MoveCallConstructor) => {
+
+    console.log("start decrypt vodata , number:", voteBoxData.length);
+    console.log("start fetch keys");
+
+    for (let i = 0; i < voteBoxData.length; i += 10) {
+        const batch = voteBoxData.slice(i, i + 10);
+        const tx = new Transaction();
+        const ids = batch.map((enc) => EncryptedObject.parse(new Uint8Array(enc.vote)).id)
+        for (const id of ids) {
+            moveCallConstructor(tx, id);
+        }
+        const txBytes = await tx.build({ client: suiClient, onlyTransactionKind: true });
+
+        try {
+            await sealClient.fetchKeys({
+                ids,
+                txBytes,
+                sessionKey,
+                threshold: 2
+            })
+        } catch (err) {
+            const errorMsg =
+                err instanceof NoAccessError
+                    ? 'No access to decryption keys'
+                    : 'Unable to decrypt files, try again';
+            console.error(errorMsg, err);
+            return;
+        }
+    }
+
+    const decryptedResult: { voter: string; vote: string | null }[] = [];
+    for (const voteData of voteBoxData) {
+        const result = await decryptVoteBox(sessionKey, voteData.vote, moveCallConstructor);
+        decryptedResult.push({
+            voter: voteData.voter,
+            vote: result
+        });
+    }
+    return decryptedResult;
+}
+
+export const decryptVoteBox = async (sessionKey: SessionKey, votedata: Uint8Array, moveCallConstructor: MoveCallConstructor) => {
+    const fullId = EncryptedObject.parse(new Uint8Array(votedata)).id;
+    const tx = new Transaction();
+    moveCallConstructor(tx, fullId);
+
+    const txBytes = await tx.build({ client: suiClient, onlyTransactionKind: true });
+
+    try {
+        const decryptedData = await sealClient.decrypt({
+            data: new Uint8Array(votedata),
+            sessionKey,
+            txBytes,
+        });
+
+        const decoder = new TextDecoder();
+        return decoder.decode(decryptedData);
+    } catch (err) {
+        const errorMsg =
+            err instanceof NoAccessError
+                ? 'No access to decryption keys'
+                : 'Unable to decrypt files, try again';
+        console.error(errorMsg, err);
+        return null;
+    }
+}
+
 
 export const test_decrptedVoteBox = async (sessionKey: SessionKey, voteBoxData: SuiEncryptedVoteType[], moveCallConstructor: MoveCallConstructor) => {
     console.log("开始解密投票数据，数量:", voteBoxData.length);
@@ -160,6 +223,8 @@ export const test_decrptedVoteBox = async (sessionKey: SessionKey, voteBoxData: 
                     console.log("无法检查sessionKey状态", e);
                 }
             }
+
+            return null;
         }
     }
     console.log(`解密完成: 成功 ${voteResult.length}/${voteBoxData.length}`);

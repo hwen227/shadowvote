@@ -5,12 +5,17 @@ export enum VoteStatus {
     ENDED = "ended"
 }
 
+export type WalrusAttchFileBlob = {
+    blob_id: string,
+    name: string
+}
 
 // 投票类型定义
-export type WalrusVotePool = {
-    title: string,
-    description: string,
-    options: VoteOption[],
+export interface EncryptedInputVotePool {
+    title: string;
+    description: string;
+    options: VoteOption[];
+    attch_file_blobs?: WalrusAttchFileBlob[];
 }
 
 export type VoteOption = {
@@ -29,16 +34,24 @@ export type SuiEncryptedVoteType = {
     vote: Uint8Array,
 }
 
-export type SuiVotePool = {
+export type SuiResponseVotePool = {
     id: { id: string },
     title: string,
     creator: string,
-    blob_id: string,
-    allowlist_id: string,
+    details: string | Uint8Array,
+    allowlist_id?: string,
     votebox_id: string,
     start: number,
     end: number,
     participantsCount: number,
+}
+
+export type SuiInputVotePool = {
+    title: string,
+    details: string | Uint8Array,
+    allowlist_Id?: string,
+    start: number,
+    end: number,
 }
 
 // 前端显示用的投票池类型
@@ -47,20 +60,10 @@ export type VotePoolDisplayType = {
     id: string,
     title: string,
     creator: string,
-    blob_id: string,
-    allowlist_id: string,
-    votebox_id: string,
     start: number,
     end: number,
     participantsCount: number,
     status: VoteStatus,
     iconType: string,
-}
-
-export type SuiAllowlist = {
-    id: string,
-    creator: string,
-    blob_id: string,
-    allowlist: string[],
 }
 

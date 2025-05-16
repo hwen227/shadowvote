@@ -2,17 +2,18 @@
 
 import VoteResult from "@/app/votes/[id]/components/VoteResult";
 import { useState, use, useEffect, useCallback } from "react";
-import { WalrusVotePool } from "@/types";
+import { EncryptedInputVotePool } from "@/types";
 import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { getVotePoolById } from "@/contracts/query";
-import { SuiVotePool } from "@/types";
+import { SuiResponseVotePool } from "@/types";
 import { SessionKey } from "@mysten/seal";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { networkConfig } from "@/contracts";
-import { getRemainingTime } from "@/lib/utils";
-import Link from "next/link";
 import VoteDecryptedDetails from "../components/VoteDecryptedDetails";
+import PublicVoteDetails from "../components/PublicVoteDetails";
+import { Transaction } from "@mysten/sui/transactions";
+import { fromHex } from "@mysten/sui/utils";
+import { MoveCallConstructor } from "@/contracts/seal";
+import VoteHeader from "../components/VoteHeader";
 
 export default function VoteResultPage({ params }: { params: { id: string } }) {
 
@@ -21,18 +22,20 @@ export default function VoteResultPage({ params }: { params: { id: string } }) {
         : params.id;
     const currentAccount = useCurrentAccount();
     const [voteNotFound, setVoteNotFound] = useState(false);
-    const [votePoolObjectData, setVotePoolObjectData] = useState<SuiVotePool | null>(null);
+    const [votePoolObjectData, setVotePoolObjectData] = useState<SuiResponseVotePool | null>(null);
     const [currentSessionKey, setCurrentSessionKey] = useState<SessionKey | null>(null);
     const { mutate: signPersonalMessage } = useSignPersonalMessage();
-    const [decryptedVotePoolData, setDecryptedVotePoolData] = useState<WalrusVotePool | null>(null);
+    const [decryptedVotePoolData, setDecryptedVotePoolData] = useState<EncryptedInputVotePool | null>(null);
+    const [isAllowlist, setIsAllowlist] = useState(true);
 
     const fetchVoteData = useCallback(async () => {
         try {
-            const suiVotePoolData = await getVotePoolById(voteId);
+            const [suiVotePoolData, is_allowlist] = await getVotePoolById(voteId);
             if (!suiVotePoolData) {
                 setVoteNotFound(true);
             }
             setVotePoolObjectData(suiVotePoolData);
+            setIsAllowlist(is_allowlist);
         } catch (error) {
             console.error("Error fetching vote data:", error);
             setVoteNotFound(true);
@@ -76,6 +79,11 @@ export default function VoteResultPage({ params }: { params: { id: string } }) {
         setCurrentSessionKey(null);
     }, [currentAccount, fetchVoteData]);
 
+    useEffect(() => {
+        if (!isAllowlist) {
+            setDecryptedVotePoolData(JSON.parse(votePoolObjectData?.details as string));
+        }
+    }, [votePoolObjectData]);
 
     if (!currentAccount) {
         return (
@@ -103,52 +111,85 @@ export default function VoteResultPage({ params }: { params: { id: string } }) {
         !currentSessionKey.isExpired() &&
         currentSessionKey.getAddress() === currentAccount.address;
 
-    const handleDecryptSuccess = (decryptedData: WalrusVotePool) => {
+    const handleDecryptSuccess = (decryptedData: EncryptedInputVotePool) => {
         setDecryptedVotePoolData(decryptedData);
     };
 
+    // 为非allowlist投票创建一个自定义的moveCall
+    const constructPublicMoveCall = (voteboxId: string, voteId: string): MoveCallConstructor => {
+        return (tx: Transaction, id: string) => {
+            tx.moveCall({
+                target: `${networkConfig.testnet.variables.packageID}::votepool_wo_al::seal_approve`,
+                arguments: [
+                    tx.pure.vector('u8', fromHex(id)),
+                    tx.object(voteboxId),
+                    tx.object(voteId),
+                    tx.object('0x6')
+                ]
+            });
+        };
+    };
+
+    //为allowlist投票创建一个自定义的moveCall
+    const constructMoveCall = (voteboxId: string, end: number): MoveCallConstructor => {
+        return (tx: Transaction, id: string) => {
+            tx.moveCall({
+                target: `${networkConfig.testnet.variables.packageID}::votebox::seal_approve`,
+                arguments: [
+                    tx.pure.vector('u8', fromHex(id)),
+                    tx.object(voteboxId),
+                    tx.pure.u64(end),
+                    tx.object('0x6')
+                ]
+            })
+        }
+    }
+
     return (
-        <div className="container max-w-3xl mx-auto px-4 py-8">
-            <div className="flex items-center mb-6">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="mr-4"
-                    asChild
-                >
-                    <Link href="/">
-                        <i className="fas fa-arrow-left"></i>
-                    </Link>
-                </Button>
-                <h1 className="text-xl font-medium">投票详情</h1>
-            </div>
+        <>
+            <VoteHeader votePoolObjectData={votePoolObjectData} title="投票结果" />
 
-            <div className="mb-8">
-                <h2 className="text-xl font-semibold mb-2">{votePoolObjectData?.title}</h2>
-                <div className="flex items-center mb-4">
-                    <Badge variant="success" className="mr-3">进行中</Badge>
-                    <span className="text-sm text-gray-500">
-                        <i className="fas fa-clock mr-1"></i> {votePoolObjectData?.end ? getRemainingTime(votePoolObjectData.end) : ''}
-                    </span>
-                </div>
+            <div className="container max-w-3xl mx-auto px-4">
+                {isAllowlist ? (
+                    <>
+                        {isSessionKeyValid && votePoolObjectData && (
+                            <VoteDecryptedDetails
+                                votePoolObjectData={votePoolObjectData}
+                                voteId={voteId}
+                                sessionKey={currentSessionKey}
+                                decryptedVotePoolData={decryptedVotePoolData}
+                                onDecryptSuccess={handleDecryptSuccess}
+                            />
+                        )}
 
-                {isSessionKeyValid && votePoolObjectData &&
-                    <VoteDecryptedDetails
-                        votePoolObjectData={votePoolObjectData}
-                        voteId={voteId}
-                        sessionKey={currentSessionKey}
-                        decryptedVotePoolData={decryptedVotePoolData}
-                        onDecryptSuccess={handleDecryptSuccess}
-                    />}
-
-                {isSessionKeyValid &&
-                    votePoolObjectData && decryptedVotePoolData && (
-                        <VoteResult
-                            votePool={votePoolObjectData}
-                            options={decryptedVotePoolData.options}
-                            sessionKey={currentSessionKey}
+                        {isSessionKeyValid &&
+                            votePoolObjectData && decryptedVotePoolData && (
+                                <VoteResult
+                                    votePool={votePoolObjectData}
+                                    options={decryptedVotePoolData.options}
+                                    sessionKey={currentSessionKey}
+                                    customMoveCall={isAllowlist ? constructMoveCall(votePoolObjectData.votebox_id, votePoolObjectData.end) : constructPublicMoveCall(votePoolObjectData.votebox_id, voteId)}
+                                />
+                            )}
+                    </>
+                ) : (
+                    <>
+                        <PublicVoteDetails
+                            votePoolObjectData={votePoolObjectData}
+                            voteId={voteId}
                         />
-                    )}
+
+                        {isSessionKeyValid &&
+                            votePoolObjectData && decryptedVotePoolData && (
+                                <VoteResult
+                                    votePool={votePoolObjectData}
+                                    options={decryptedVotePoolData.options}
+                                    sessionKey={currentSessionKey}
+                                    customMoveCall={isAllowlist ? constructMoveCall(votePoolObjectData.votebox_id, votePoolObjectData.end) : constructPublicMoveCall(votePoolObjectData.votebox_id, voteId)}
+                                />
+                            )}
+                    </>
+                )}
 
                 {!isSessionKeyValid && (
                     <div className="container max-w-3xl mx-auto px-4 py-8 text-center">
@@ -161,6 +202,6 @@ export default function VoteResultPage({ params }: { params: { id: string } }) {
                     </div>
                 )}
             </div>
-        </div>
-    )
+        </>
+    );
 } 

@@ -1,7 +1,7 @@
 import { isValidSuiAddress } from "@mysten/sui/utils";
 import { networkConfig, suiClient } from "./index";
 import { SuiObjectData, SuiObjectResponse, SuiParsedData } from "@mysten/sui/client";
-import { SuiEncryptedVoteType, SuiVotePool } from "@/types";
+import { SuiEncryptedVoteType, SuiResponseVotePool } from "@/types";
 
 
 
@@ -36,7 +36,16 @@ export const getVotePoolState = async (): Promise<VotePoolCreatedEvent[]> => {
   });
 
 
-  const votePoolState = events.data.map((event) => {
+  const events_woal = await suiClient.queryEvents({
+    query: {
+      MoveEventType: `${networkConfig.testnet.variables.packageID}::votepool_wo_al::VotePoolCreated`,
+    }
+  });
+
+  const rawVotepools = [...events.data, ...events_woal.data];
+
+
+  const votePoolState = rawVotepools.map((event) => {
     const parsedEvent = event.parsedJson as VotePoolCreatedEvent;
     return parsedEvent;
   });
@@ -45,7 +54,7 @@ export const getVotePoolState = async (): Promise<VotePoolCreatedEvent[]> => {
 }
 
 
-export const getMultiVotePools = async (vote_ids: string[]): Promise<SuiVotePool[]> => {
+export const getMultiVotePools = async (vote_ids: string[]): Promise<SuiResponseVotePool[]> => {
   const rawData = await suiClient.multiGetObjects({
     ids: vote_ids,
     options: {
@@ -58,7 +67,7 @@ export const getMultiVotePools = async (vote_ids: string[]): Promise<SuiVotePool
     if (!('fields' in parsedVotePool) || !parsedVotePool) {
       throw new Error("Invalid vote pool data structure");
     }
-    return parsedVotePool.fields as SuiVotePool;
+    return parsedVotePool.fields as SuiResponseVotePool;
   });
 
   return votePools;
@@ -137,8 +146,8 @@ export const getAllowlists = async (owner: string) => {
 
 }
 
-//TODO: 需要用state去获取了，逻辑需要完全更改
-export const getVotePoolByStates = async (address: string): Promise<SuiVotePool[]> => {
+//用不上咧，先放着
+export const getOwnedVotePool = async (address: string): Promise<SuiResponseVotePool[]> => {
   if (!isValidSuiAddress(address)) {
     throw new Error("Invalid Sui address");
   }
@@ -170,7 +179,7 @@ export const getVotePoolByStates = async (address: string): Promise<SuiVotePool[
       if (!('fields' in parsedVotePool) || !parsedVotePool) {
         throw new Error("Invalid vote pool data structure");
       }
-      return parsedVotePool.fields as SuiVotePool;
+      return parsedVotePool.fields as SuiResponseVotePool;
     });
 
     return votePoolsData;
@@ -182,7 +191,7 @@ export const getVotePoolByStates = async (address: string): Promise<SuiVotePool[
 
 }
 
-export const getVotePoolById = async (voetId: string): Promise<SuiVotePool> => {
+export const getVotePoolById = async (voetId: string): Promise<[SuiResponseVotePool, boolean]> => {
   if (!isValidSuiAddress(voetId)) {
     throw new Error("Invalid Sui address");
   }
@@ -191,6 +200,7 @@ export const getVotePoolById = async (voetId: string): Promise<SuiVotePool> => {
     id: voetId,
     options: {
       showContent: true,
+      showType: true,
     }
   });
 
@@ -198,8 +208,12 @@ export const getVotePoolById = async (voetId: string): Promise<SuiVotePool> => {
   if (!('fields' in parsedVotePool) || !parsedVotePool) {
     throw new Error("Invalid vote pool data structure");
   }
-  return parsedVotePool.fields as SuiVotePool;
 
+  let is_allowlist: boolean = true;
+  if (parsedVotePool.type.includes("::votepool_wo_al::VotePool_WOAl"))
+    is_allowlist = false;
+
+  return [parsedVotePool.fields as SuiResponseVotePool, is_allowlist];
 }
 
 export const queryState = async () => {
@@ -213,17 +227,7 @@ export const queryState = async () => {
   return state;
 }
 
-export const queryVoteBox2 = async (voteBoxId: string) => {
-  const voteBox = await suiClient.getObject({
-    id: voteBoxId,
-    options: {
-      showContent: true
-    }
-  })
 
-  const parsedVoteBox = voteBox.data?.content as SuiParsedData;
-  return parsedVoteBox;
-}
 
 export const queryVoteBox = async (voteBoxId: string): Promise<SuiEncryptedVoteType[]> => {
   const voteBox = await suiClient.getObject({
@@ -240,6 +244,7 @@ export const queryVoteBox = async (voteBoxId: string): Promise<SuiEncryptedVoteT
 
   const voteBoxDataFields = (parsedVoteBox.fields as unknown) as {
     id: { id: string },
+    creator: string,
     votes: { fields: { voter: string, vote: Uint8Array } }[]
   };
 
@@ -273,7 +278,6 @@ export const findObjectTypeName = async (objectId: string) => {
     throw new Error("Invalid object data structure");
   }
 
-  console.log("parsedObj", parsedObj);
   return parsedObj.type;
 }
 

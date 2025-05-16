@@ -1,5 +1,5 @@
 import { networkConfig } from '@/contracts';
-import { WalrusVotePool } from '@/types';
+import { EncryptedInputVotePool } from '@/types';
 import { SealClient, SessionKey, NoAccessError, EncryptedObject } from '@mysten/seal';
 import { SuiClient } from '@mysten/sui/client';
 import { Transaction } from '@mysten/sui/transactions';
@@ -114,7 +114,7 @@ export const downloadAndDecrypt = async (
 };
 
 export const encryptVotePool = async (
-    votePool: WalrusVotePool,
+    votePool: EncryptedInputVotePool,
     allowlistID: string,
     suiClient: SuiClient,
     sealClient: SealClient
