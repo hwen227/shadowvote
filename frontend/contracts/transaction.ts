@@ -1,6 +1,6 @@
 import { SuiInputVotePool } from "@/types"
 import { Transaction } from "@mysten/sui/transactions"
-import { networkConfig } from "."
+import { networkConfig, suiClient } from "."
 
 export const createVotePoolTx = (votepool: SuiInputVotePool): Transaction => {
 
@@ -151,5 +151,37 @@ export const castVoteTx_woal = async (votePoolId: string, votebox: string, vote:
 
     return tx;
 }
+
+export const dry_run_has_voted = async (tx: Transaction, sender: string) => {
+    try {
+        tx.setSender(sender);
+        const txBytesUint8Array = await tx.build({ client: suiClient });
+        const txBytes = Buffer.from(txBytesUint8Array).toString('base64');
+
+        const result = await suiClient.dryRunTransactionBlock({
+            transactionBlock: txBytes
+        });
+
+        console.log('Dry run result:', result);
+        return result;
+
+    } catch (error) {
+
+        if (typeof error === 'object' && error !== null && 'message' in error) {
+            const msg = (error as any).message;
+            const match = msg.match(/MoveAbort\(.*?, (\d+)\)/);
+            if (match) {
+                const errorCode = match[1];
+                console.log('⚠️ Error code extracted:', errorCode);
+
+                if (errorCode === '5') {
+                    throw new Error('You have already voted for this vote');
+                }
+            }
+        }
+    }
+
+
+};
 
 

@@ -1,7 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
     Select,
     SelectContent,
@@ -16,26 +15,12 @@ import {
     DialogTitle,
     DialogFooter,
 } from "@/components/ui/dialog";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-} from "@/components/ui/card";
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from "@/components/ui/table";
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import { getAllowlists, AllowlistWithCap } from "@/contracts/query";
 import { createAllowlisTx, allowListAdd, allowListRemove, allowlistMultiAdd, allowListMultiRemove } from "@/contracts/transaction";
 import { suiClient } from "@/contracts";
 import { Transaction } from "@mysten/sui/transactions";
+import { Edit, Plus, Trash2 } from "lucide-react";
 
 interface AllowlistManagerProps {
     selectedAllowlistId: string;
@@ -340,24 +325,24 @@ export function AllowlistManager({
         setIsNewDialogOpen(true);
     };
 
-    if (loading) return <div className="text-center">加载白名单中...</div>;
+    if (loading) return <div className="text-center">Loading...</div>;
     if (error) return <div className="text-center text-red-500">{error}</div>;
 
     return (
         <div>
             <div className="space-y-4">
                 <div className="space-y-2">
-                    <Label>选择白名单</Label>
+                    <label className="text-sm font-medium text-gray-300">Select Whitelist</label>
                     <Select
                         value={selectedAllowlistId}
                         onValueChange={handleAllowlistSelect}
                     >
-                        <SelectTrigger>
-                            <SelectValue placeholder="选择一个白名单" />
+                        <SelectTrigger className="w-full bg-black/50 border-purple-900/50 text-gray-300">
+                            <SelectValue placeholder="Select a Whitelist" />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
                             {allowlists.map((item) => (
-                                <SelectItem key={item.allowlist.id.id} value={item.allowlist.id.id}>
+                                <SelectItem key={item.allowlist.id.id} value={item.allowlist.id.id} className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">
                                     {item.allowlist.name}
                                 </SelectItem>
                             ))}
@@ -366,137 +351,143 @@ export function AllowlistManager({
                 </div>
 
                 {selectedAllowlistId && (
-                    <Card className="mt-4">
-                        <CardHeader className="py-3">
-                            <div className="flex justify-between items-center">
-                                <CardTitle className="text-base">
-                                    白名单详情
-                                </CardTitle>
-                                <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                        const selected = allowlists.find(a => a.allowlist.id.id === selectedAllowlistId);
-                                        if (selected) handleEditClick(selected);
-                                    }}
-                                >
-                                    <i className="fas fa-edit mr-2"></i> 编辑
-                                </Button>
-                            </div>
-                            <CardDescription>
-                                {allowlists.find(a => a.allowlist.id.id === selectedAllowlistId)?.allowlist.name}
-                            </CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                            <div className="max-h-60 overflow-y-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>地址</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {allowlists
-                                            .find(a => a.allowlist.id.id === selectedAllowlistId)
-                                            ?.allowlist.list.map((address, index) => (
-                                                <TableRow key={index}>
-                                                    <TableCell className="font-mono text-xs truncate max-w-xs">
-                                                        {address}
-                                                    </TableCell>
-                                                </TableRow>
-                                            ))}
-                                    </TableBody>
-                                </Table>
-                            </div>
-                        </CardContent>
-                    </Card>
-                )}
+                    <><div className="border border-purple-900/50 rounded-lg p-4 bg-black/30">
+                        <div className="flex justify-between items-center mb-4">
+                            <h3 className="text-sm font-medium text-gray-300">Whitelist Details</h3>
+                            <Button
+                                variant="ghost" size="sm" className="text-purple-400 hover:text-purple-300"
+                                onClick={() => {
+                                    const selected = allowlists.find(a => a.allowlist.id.id === selectedAllowlistId);
+                                    if (selected) handleEditClick(selected);
+                                }}
+                            >
+                                <Edit className="w-4 h-4 mr-1" />
+                                Edit
+                            </Button>
+                        </div>
+
+                        <p className="text-xs text-gray-500 mb-2">
+                            {allowlists.find(a => a.allowlist.id.id === selectedAllowlistId)?.allowlist.name}
+                        </p>
+
+                        <div className="space-y-2 max-h-40 overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-purple-900 scrollbar-track-black/20">
+
+                            {allowlists
+                                .find(a => a.allowlist.id.id === selectedAllowlistId)
+                                ?.allowlist.list.map((address, index) => (
+                                    <div key={index} className="bg-black/50 border border-purple-900/30 rounded p-2 text-xs font-mono text-gray-400">
+                                        {address}
+                                    </div>
+                                ))}
+
+                        </div>
+                    </div>
+                    </>)}
+
+                {/* 编辑白名单对话框 */}
 
                 <Button
                     variant="outline"
-                    className="w-full mt-4"
+                    className="w-full bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors "
                     onClick={openNewAllowlistDialog}
                     disabled={isProcessing}
                 >
-                    <i className="fas fa-plus mr-2"></i> 创建新白名单
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create New Whitelist
                 </Button>
-            </div>
+            </div >
 
             {/* 编辑白名单对话框 */}
-            <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>编辑白名单</DialogTitle>
+            < Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen} >
+                <DialogContent className="bg-black border border-purple-900/50 text-white sm:max-w-md">
+                    <DialogHeader >
+                        <DialogTitle className="text-xl font-bold flex items-center">
+                            <Edit className="w-5 h-5 mr-2 text-purple-400" />
+                            Edit Whitelist</DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-6 py-4">
                         <div className="space-y-2">
-                            <Label>白名单名称</Label>
+                            <label className="text-sm font-medium text-gray-300">Whitelist Name</label>
                             <Input
                                 value={editingAllowlist?.allowlist.name || ""}
                                 disabled
+                                placeholder="Enter whitelist name"
+                                className="bg-black/50 border-purple-900/50 focus:border-purple-500 text-white placeholder:text-gray-500"
                             />
                         </div>
                         <div className="space-y-2">
-                            <Label>地址列表</Label>
-                            <div className="max-h-60 overflow-y-auto space-y-2">
+                            <label className="text-sm font-medium text-gray-300">Address List</label>
+                            <div className="space-y-2 max-h-60 overflow-y-auto pr-2">
                                 {addresses.map((address, index) => (
-                                    <div key={index} className="flex space-x-2">
-                                        <Input
-                                            value={address}
-                                            disabled
-                                            className="flex-1 font-mono text-xs"
-                                        />
+                                    <div key={index} className="flex items-center gap-2">
+                                        <div className="flex-1 bg-black/50 border border-purple-900/30 rounded p-2 text-xs font-mono text-gray-400 break-all">
+                                            {address}
+                                        </div>
                                         <Button
-                                            variant="outline"
+                                            variant="ghost"
                                             size="icon"
                                             onClick={() => removeAddress(index)}
                                             disabled={isProcessing}
+                                            className="text-gray-500 hover:text-red-500 flex-shrink-0"
                                         >
-                                            <i className="fas fa-trash"></i>
+                                            <Trash2 className="w-4 h-4" />
                                         </Button>
                                     </div>
                                 ))}
                             </div>
-                            <div className="flex space-x-2 mt-2">
+                            <div className="flex items-center gap-2 mt-4">
                                 <Input
-                                    placeholder="输入新地址"
                                     value={newAddress}
                                     onChange={(e) => setNewAddress(e.target.value)}
-                                    className="flex-1"
+                                    placeholder="Enter new address"
+                                    className="bg-black/50 border-purple-900/50 focus:border-purple-500 text-white placeholder:text-gray-500"
                                     disabled={isProcessing}
                                 />
-                                <Button onClick={addAddress} disabled={isProcessing}>添加</Button>
+                                <Button
+                                    className="bg-purple-600 hover:bg-purple-700 text-white flex-shrink-0"
+                                    onClick={addAddress}
+                                    disabled={isProcessing}>Add</Button>
                             </div>
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isProcessing}>
-                            取消
+                    <DialogFooter className="flex justify-between">
+                        <Button variant="outline"
+                            className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300"
+                            onClick={() => setIsEditDialogOpen(false)}
+                            disabled={isProcessing}>
+                            Cancel
                         </Button>
-                        <Button onClick={saveEdits} disabled={isProcessing}>
-                            {isProcessing ? '处理中...' : '保存'}
+                        <Button
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            onClick={saveEdits}
+                            disabled={isProcessing}>
+                            {isProcessing ? 'Processing...' : 'Save'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
-            </Dialog>
+            </Dialog >
 
             {/* 创建新白名单对话框 */}
-            <Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen}>
-                <DialogContent className="max-w-md">
+            < Dialog open={isNewDialogOpen} onOpenChange={setIsNewDialogOpen} >
+                <DialogContent className="bg-black border border-purple-900/50 text-white sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>创建新白名单</DialogTitle>
+                        <DialogTitle className="text-xl font-bold flex items-center">
+                            <Plus className="w-5 h-5 mr-2 text-purple-400" />
+                            Create New Whitelist
+                        </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
+                    <div className="space-y-6 py-4">
                         <div className="space-y-2">
-                            <Label>白名单名称</Label>
+                            <label className="text-sm font-medium text-gray-300">Whitelist Name</label>
                             <Input
-                                placeholder="输入白名单名称"
+                                placeholder="Enter whitelist name"
                                 value={newAllowlistName}
                                 onChange={(e) => setNewAllowlistName(e.target.value)}
                                 disabled={isProcessing}
+                                className="bg-black/50 border-purple-900/50 focus:border-purple-500 text-white placeholder:text-gray-500"
                             />
                         </div>
-                        <div className="space-y-2">
+                        {/* <div className="space-y-2">
                             <Label>地址列表</Label>
                             <div className="max-h-60 overflow-y-auto space-y-2">
                                 {addresses.map((address, index) => (
@@ -527,18 +518,24 @@ export function AllowlistManager({
                                 />
                                 <Button onClick={addAddress} disabled={isProcessing}>添加</Button>
                             </div>
-                        </div>
+                        </div> */}
                     </div>
-                    <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsNewDialogOpen(false)} disabled={isProcessing}>
-                            取消
+                    <DialogFooter className="flex justify-between">
+                        <Button variant="outline"
+                            className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300"
+                            onClick={() => setIsNewDialogOpen(false)}
+                            disabled={isProcessing}>
+                            Cancel
                         </Button>
-                        <Button onClick={createNewAllowlist} disabled={isProcessing}>
-                            {isProcessing ? '处理中...' : '创建'}
+                        <Button
+                            className="bg-purple-600 hover:bg-purple-700 text-white"
+                            onClick={createNewAllowlist}
+                            disabled={isProcessing}>
+                            {isProcessing ? 'Processing...' : 'Create'}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
-            </Dialog>
-        </div>
+            </Dialog >
+        </div >
     );
 } 

@@ -16,6 +16,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 import { SuiResponseVotePool, VoteOption } from "@/types";
 import { decryptVoteResult, MoveCallConstructor } from "@/contracts/seal";
 import { SessionKey } from "@mysten/seal";
+import { PieChart } from "lucide-react";
 
 // 添加处理投票者显示的函数
 const getVoterDisplay = (voter: string) => {
@@ -148,42 +149,47 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
     const totalVotes = decryptedVoteResults.filter(result => result.vote !== null).length;
 
     return (
-        <div className="container max-w-3xl mx-auto px-4 py-8">
+        <div className="border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg p-6">
 
             {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg">
                     <div className="mb-4">
-                        <div className="w-8 h-8 border-4 border-t-blue-500 border-b-blue-200 border-l-blue-200 border-r-blue-200 rounded-full animate-spin"></div>
+                        <div className="w-8 h-8 border-4 border-t-purple-500 border-b-purple-200 border-l-purple-200 border-r-purple-200 rounded-full animate-spin"></div>
                     </div>
-                    <p className="text-gray-600">正在加载投票结果...</p>
+                    <p className="text-gray-600">Loading vote results...</p>
                 </div>
             ) : !isDecrypted ? (
                 <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg">
-                    <p className="text-gray-600 mb-4">解密失败，您暂无权限查看投票结果</p>
+                    <p className="text-gray-600 mb-4">Decryption failed, you do not have permission to view the vote results</p>
                     <Button
                         onClick={downloadAndDecryptVoteData}
                         disabled={isLoading || isDecrypting.current}
                     >
-                        {isLoading ? '处理中...' : '重新解密'}
+                        {isLoading ? 'Processing' : 'Try again'}
                     </Button>
                 </div>
             ) : (
-                <div className="mt-6">
+                <div className="mb-6">
                     <div className="flex justify-between items-center mb-4">
-                        <h3 className="text-lg font-medium">投票结果 ({totalVotes} 票)</h3>
+                        <h2 className="text-lg font-medium flex items-center">
+                            <PieChart className="w-5 h-5 mr-2 text-purple-400" />Vote Results ({totalVotes} votes)</h2>
                         <Dialog>
                             <DialogTrigger asChild>
-                                <Button variant="outline">查看投票详情</Button>
+                                <Button variant="outline"
+                                    size="sm"
+                                    className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400">
+                                    View vote details
+                                </Button>
                             </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
+                            <DialogContent className=" bg-black border border-purple-900/50 text-white max-w-2xl">
                                 <DialogHeader>
-                                    <DialogTitle>投票详情列表</DialogTitle>
+                                    <DialogTitle>Vote Details List</DialogTitle>
                                 </DialogHeader>
                                 <ScrollArea className="h-[400px] w-full rounded-md border p-4">
                                     <div className="space-y-4">
                                         <div className="flex justify-between items-center py-2 border-b border-b-2 font-medium text-sm text-gray-500">
-                                            <div className="w-[200px]">投票地址</div>
-                                            <div className="flex-1">投票选择</div>
+                                            <div className="w-[200px]">Voter Address</div>
+                                            <div className="flex-1">Vote Choice</div>
                                         </div>
                                         {decryptedVoteResults
                                             .filter(result => result.vote !== null)
@@ -195,7 +201,7 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
                                                             {getVoterDisplay(result.voter)}
                                                         </div>
                                                         <div className="text-sm flex-1">
-                                                            <span className="font-medium">{votedOption?.text || '未知选项'}</span>
+                                                            <span className="font-medium">{votedOption?.text || 'Unknown option'}</span>
                                                         </div>
                                                     </div>
                                                 );
@@ -205,19 +211,19 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
                             </DialogContent>
                         </Dialog>
                     </div>
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         {optionsWithVotes.map((option) => {
                             const percentage = totalVotes > 0 ? Math.round((option.voteCount! / totalVotes) * 100) : 0;
 
                             return (
-                                <div key={option.id} className="border rounded-lg p-4">
+                                <div key={option.id} className="space-y-2">
                                     <div className="flex justify-between items-center mb-2">
-                                        <span className="font-medium">{option.text}</span>
-                                        <span className="text-sm text-gray-500">{option.voteCount} 票 ({percentage}%)</span>
+                                        <span className="font-medium text-gray-300">{option.text}</span>
+                                        <span className="text-sm text-gray-500">{option.voteCount} votes ({percentage}%)</span>
                                     </div>
                                     <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
                                         <div
-                                            className="h-full bg-blue-500 rounded-full"
+                                            className="h-full bg-purple-500 rounded-full"
                                             style={{ width: `${percentage}%` }}
                                         />
                                     </div>

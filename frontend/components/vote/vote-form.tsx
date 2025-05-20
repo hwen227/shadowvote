@@ -5,16 +5,10 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { SuiInputVotePool, VoteOption, EncryptedInputVotePool, WalrusAttchFileBlob } from "@/types";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle
-} from "@/components/ui/card";
+
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import * as sealUtils from "@/contracts/seal";
 import { suiClient } from "@/contracts";
@@ -24,9 +18,16 @@ import { findObjectTypeName } from "@/contracts/query";
 import { Transaction } from "@mysten/sui/transactions";
 import { FileUpload } from "@/components/vote/file-upload";
 import { useUploadBlob } from "@/hooks/useUploadBlob";
+import Link from "next/link";
+import { Calendar } from "@/components/ui/calendar";
+import { AlertCircle, ArrowLeft, ArrowRight, CalendarIcon, Check, Clock, FileLock2, HardDrive, Plus, Sparkles, Trash2, Users } from "lucide-react";
 
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+
+import { format } from "date-fns";
 // 表单步骤类型
-type FormStep = "basicInfo" | "options" | "time" | "permissions" | "confirmation";
+type FormStep = "basic" | "options" | "timing" | "permissions" | "confirmation";
 
 // 生成随机ID前缀 (3个字符)
 const generateRandomIdPrefix = (): string => {
@@ -53,8 +54,18 @@ interface VoteFormData {
     title: string;
     description: string;
     options: FormVoteOption[];
-    startTime: string;
-    endTime: string;
+    startTime: {
+        date: Date | undefined;
+        hour: string;
+        minute: string;
+        period: 'AM' | 'PM';
+    };
+    endTime: {
+        date: Date | undefined;
+        hour: string;
+        minute: string;
+        period: 'AM' | 'PM';
+    };
     permissionType: "all" | "specific";
     selectedAllowlistId: string;
     selectedAllowlistInfo: {
@@ -64,34 +75,10 @@ interface VoteFormData {
     attachments: File[];
 }
 
-// 步骤配置
-const STEPS: { [key in FormStep]: { title: string; description: string } } = {
-    basicInfo: {
-        title: "基本信息",
-        description: "设置投票的标题和描述"
-    },
-    options: {
-        title: "选项设置",
-        description: "添加投票选项"
-    },
-    time: {
-        title: "时间设置",
-        description: "设置投票的开始和结束时间"
-    },
-    permissions: {
-        title: "权限设置",
-        description: "设置谁可以参与投票"
-    },
-    confirmation: {
-        title: "确认提交",
-        description: "确认投票信息并提交"
-    }
-};
-
 export function VoteForm() {
     const router = useRouter();
     const { storeBlob } = useUploadBlob();
-    const [currentStep, setCurrentStep] = useState<FormStep>("basicInfo");
+    const [currentStep, setCurrentStep] = useState<FormStep>("basic");
     const [idPrefix, setIdPrefix] = useState<string>(generateRandomIdPrefix());
 
     const [formData, setFormData] = useState<VoteFormData>({
@@ -101,8 +88,18 @@ export function VoteForm() {
             { id: `${idPrefix}_0`, text: "" },
             { id: `${idPrefix}_1`, text: "" }
         ],
-        startTime: "",
-        endTime: "",
+        startTime: {
+            date: undefined,
+            hour: "09",
+            minute: "00",
+            period: "AM"
+        },
+        endTime: {
+            date: undefined,
+            hour: "05",
+            minute: "00",
+            period: "PM"
+        },
         permissionType: "all",
         selectedAllowlistId: "",
         selectedAllowlistInfo: null,
@@ -110,6 +107,7 @@ export function VoteForm() {
     });
     const [isProcessing, setIsProcessing] = useState(false);
     const [processingStatus, setProcessingStatus] = useState("");
+    const [validationError, setValidationError] = useState<string>("");
 
     const currentAccount = useCurrentAccount();
 
@@ -127,15 +125,25 @@ export function VoteForm() {
                 { id: `${newIdPrefix}_0`, text: "" },
                 { id: `${newIdPrefix}_1`, text: "" }
             ],
-            startTime: "",
-            endTime: "",
+            startTime: {
+                date: undefined,
+                hour: "09",
+                minute: "00",
+                period: "AM"
+            },
+            endTime: {
+                date: undefined,
+                hour: "05",
+                minute: "00",
+                period: "PM"
+            },
             permissionType: "all",
             selectedAllowlistId: "",
             selectedAllowlistInfo: null,
             attachments: []
         });
         // 重置到第一步
-        setCurrentStep("basicInfo");
+        setCurrentStep("basic");
     }, [currentAccount]);
 
     const { mutate: signAndExecute } = useSignAndExecuteTransaction({
@@ -149,26 +157,22 @@ export function VoteForm() {
                 },
             }),
     });
-
-    // 获取当前步骤索引
     const getCurrentStepIndex = () => {
-        const steps: FormStep[] = ["basicInfo", "options", "time", "permissions", "confirmation"];
+        const steps: FormStep[] = ["basic", "options", "timing", "permissions", "confirmation"];
         return steps.indexOf(currentStep);
     };
 
-    // 导航到上一步
     const goToPrevStep = () => {
         const stepIndex = getCurrentStepIndex();
         if (stepIndex > 0) {
-            const steps: FormStep[] = ["basicInfo", "options", "time", "permissions", "confirmation"];
+            const steps: FormStep[] = ["basic", "options", "timing", "permissions", "confirmation"];
             setCurrentStep(steps[stepIndex - 1]);
         }
     };
 
-    // 导航到下一步
     const goToNextStep = () => {
         const stepIndex = getCurrentStepIndex();
-        const steps: FormStep[] = ["basicInfo", "options", "time", "permissions", "confirmation"];
+        const steps: FormStep[] = ["basic", "options", "timing", "permissions", "confirmation"];
         if (stepIndex < steps.length - 1) {
             setCurrentStep(steps[stepIndex + 1]);
         }
@@ -248,23 +252,22 @@ export function VoteForm() {
 
     }
     const transformFormData = (): { suiVotePool: SuiInputVotePool, encryptInput: EncryptedInputVotePool } => {
-        const start = new Date(formData.startTime).getTime();
-        const end = new Date(formData.endTime).getTime();
+        const startTimeStr = getISODateTime(formData.startTime);
+        const endTimeStr = getISODateTime(formData.endTime);
 
-        // 将投票选项转换为合适的格式
+        const start = startTimeStr ? Math.floor(new Date(startTimeStr).getTime()) : 0;
+        const end = endTimeStr ? Math.floor(new Date(endTimeStr).getTime()) : 0;
+
         const options: VoteOption[] = formData.options.map((option) => ({
             id: option.id,
             text: option.text
         }));
-
 
         const encryptInput: EncryptedInputVotePool = {
             title: formData.title,
             description: formData.description,
             options: options,
         }
-
-
 
         const suiVotePool: SuiInputVotePool = {
             title: formData.title,
@@ -280,11 +283,11 @@ export function VoteForm() {
     const encryptVotePool = async (EncryptInput: EncryptedInputVotePool) => {
 
         if (formData.permissionType !== "specific" && !formData.selectedAllowlistId) {
-            throw new Error("白名单ID不能为空");
+            throw new Error("White list ID cannot be empty");
         }
 
         try {
-            setProcessingStatus("投票池加密中...");
+            setProcessingStatus("Encrypting vote pool...");
 
             const allowlistId = formData.permissionType === "specific" ? formData.selectedAllowlistId : "";
             const encryptedBytes = await sealUtils.encryptVotePool(EncryptInput, allowlistId);
@@ -296,14 +299,64 @@ export function VoteForm() {
         }
     }
 
+    // 验证表单数据
+    const validateForm = (): { isValid: boolean; error: string } => {
+        // 重置验证错误
+        setValidationError("");
+
+        // 检查标题
+        if (!formData.title.trim()) {
+            return { isValid: false, error: "Vote Title cannot be empty" };
+        }
+
+        // 检查描述
+        if (!formData.description.trim()) {
+            return { isValid: false, error: "Vote Description cannot be empty" };
+        }
+
+        // 检查选项
+        const validOptions = formData.options.filter(opt => opt.text.trim().length > 0);
+        if (validOptions.length < 2) {
+            return { isValid: false, error: "At least 2 valid vote options are required" };
+        }
+
+        // 检查时间
+        if (!formData.startTime.date || !formData.endTime.date) {
+            return { isValid: false, error: "Please set start and end time" };
+        }
+
+        const startDateTime = new Date(getISODateTime(formData.startTime));
+        const endDateTime = new Date(getISODateTime(formData.endTime));
+
+
+        if (endDateTime <= startDateTime) {
+            return { isValid: false, error: "End time must be later than start time" };
+        }
+
+        // 检查权限设置
+        if (formData.permissionType === "specific" && !formData.selectedAllowlistId) {
+            return { isValid: false, error: "Please select a white list" };
+        }
+
+        return { isValid: true, error: "" };
+    };
+
     const handleCreateVotePool = async () => {
+        // 首先进行表单验证
+        const { isValid, error } = validateForm();
+        if (!isValid) {
+            setValidationError(error);
+            return;
+        }
+
         try {
             setIsProcessing(true);
+            setValidationError("");
             let tx = new Transaction();
             let attchFiles: WalrusAttchFileBlob[] = [];
 
             if (formData.attachments.length > 0) {
-                setProcessingStatus("正在将附件上传到Walrus...");
+                setProcessingStatus("Uploading attachments to Walrus");
                 attchFiles = await uploadFilesToWalrus();
                 console.log('attchFiles', attchFiles);
             }
@@ -326,7 +379,7 @@ export function VoteForm() {
                 tx = createVotePoolTx_woal(suiVotePool);
             }
 
-            setProcessingStatus("正在提交至Sui区块链...");
+            setProcessingStatus("Submitting to Sui blockchain...");
 
             signAndExecute({
                 transaction: tx.serialize(),
@@ -383,352 +436,538 @@ export function VoteForm() {
         }
     }
 
-    // 渲染步骤标签
-    const renderStepTabs = () => {
-        const steps: FormStep[] = ["basicInfo", "options", "time", "permissions", "confirmation"];
-        return (
-            <div className="flex border-b mb-6">
-                {steps.map((step) => (
-                    <div
-                        key={step}
-                        className={`px-4 py-2 cursor-pointer text-sm font-medium border-b-2 ${currentStep === step
-                            ? "text-primary border-primary"
-                            : "text-gray-500 border-transparent"
-                            }`}
-                        onClick={() => setCurrentStep(step)}
-                    >
-                        {STEPS[step].title}
-                    </div>
-                ))}
-            </div>
-        );
+    // 更新时间的辅助函数
+    const updateDateTime = (timeType: 'startTime' | 'endTime', field: 'date' | 'hour' | 'minute' | 'period', value: any) => {
+        setFormData(prev => ({
+            ...prev,
+            [timeType]: {
+                ...prev[timeType],
+                [field]: value
+            }
+        }));
     };
 
-    // 渲染基本信息步骤
-    const renderBasicInfoStep = () => (
-        <>
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="title">投票标题</Label>
-                    <Input
-                        id="title"
-                        placeholder="输入投票标题"
-                        value={formData.title}
-                        onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                    />
-                </div>
+    // 获取完整的 ISO 时间字符串
+    const getISODateTime = (timeData: typeof formData.startTime): string => {
+        if (!timeData.date) return '';
 
-                <div className="space-y-2">
-                    <Label htmlFor="description">投票描述</Label>
-                    <Textarea
-                        id="description"
-                        placeholder="详细说明投票的目的和背景"
-                        value={formData.description}
-                        onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                        className="min-h-[100px]"
-                    />
-                </div>
+        const date = new Date(timeData.date);
+        let hours = parseInt(timeData.hour);
 
-                <FileUpload
-                    onFileSelect={(files) => setFormData({ ...formData, attachments: files })}
-                />
-            </div>
+        // 处理12小时制到24小时制的转换
+        if (timeData.period === 'PM' && hours < 12) hours += 12;
+        if (timeData.period === 'AM' && hours === 12) hours = 0;
 
-            <div className="flex justify-between mt-6">
-                <Button
-                    variant="outline"
-                    onClick={() => router.push("/")}
-                >
-                    <i className="fas fa-times mr-2"></i> 取消创建
-                </Button>
-                <Button onClick={goToNextStep}>
-                    <i className="fas fa-arrow-right mr-2"></i> 下一步
-                </Button>
-            </div>
-        </>
-    );
-
-    // 渲染选项设置步骤
-    const renderOptionsStep = () => (
-        <>
-            <div className="space-y-4">
-                <Label>投票选项列表</Label>
-                {formData.options.map((option, index) => (
-                    <div key={option.id} className="flex space-x-2 mb-2">
-                        <Input
-                            placeholder={`选项 ${index + 1}`}
-                            value={option.text}
-                            onChange={(e) => updateOptionText(option.id, e.target.value)}
-                        />
-                        <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => removeOption(option.id)}
-                            disabled={formData.options.length <= 2}
-                        >
-                            <i className="fas fa-trash"></i>
-                        </Button>
-                    </div>
-                ))}
-
-                <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={addOption}
-                >
-                    <i className="fas fa-plus mr-2"></i> 添加选项
-                </Button>
-
-                <p className="text-xs text-gray-500">至少需要添加两个选项</p>
-            </div>
-
-            <div className="flex justify-between mt-6">
-                <Button
-                    variant="outline"
-                    onClick={goToPrevStep}
-                >
-                    <i className="fas fa-arrow-left mr-2"></i> 上一步
-                </Button>
-                <Button onClick={goToNextStep}>
-                    <i className="fas fa-arrow-right mr-2"></i> 下一步
-                </Button>
-            </div>
-        </>
-    );
-
-    // 渲染时间设置步骤
-    const renderTimeStep = () => (
-        <>
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <Label htmlFor="startTime">开始时间</Label>
-                    <Input
-                        type="datetime-local"
-                        id="startTime"
-                        value={formData.startTime}
-                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                    />
-                </div>
-
-                <div className="space-y-2">
-                    <Label htmlFor="endTime">结束时间</Label>
-                    <Input
-                        type="datetime-local"
-                        id="endTime"
-                        value={formData.endTime}
-                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                    />
-                </div>
-            </div>
-
-            <div className="flex justify-between mt-6">
-                <Button
-                    variant="outline"
-                    onClick={goToPrevStep}
-                >
-                    <i className="fas fa-arrow-left mr-2"></i> 上一步
-                </Button>
-                <Button onClick={goToNextStep}>
-                    <i className="fas fa-arrow-right mr-2"></i> 下一步
-                </Button>
-            </div>
-        </>
-    );
-
-    // 渲染权限设置步骤
-    const renderPermissionsStep = () => (
-        <>
-            <div className="space-y-4">
-                <div className="space-y-2">
-                    <Label>参与权限</Label>
-                    <RadioGroup
-                        value={formData.permissionType}
-                        onValueChange={(value) =>
-                            setFormData({ ...formData, permissionType: value as "all" | "specific" })
-                        }
-                    >
-                        <div className="flex items-center space-x-2 mb-2">
-                            <RadioGroupItem value="all" id="all-users" />
-                            <Label htmlFor="all-users">所有人可参与</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="specific" id="specific-users" />
-                            <Label htmlFor="specific-users">指定地址可参与</Label>
-                        </div>
-                    </RadioGroup>
-                </div>
-
-                {formData.permissionType === "specific" && (
-                    <div className="space-y-4 mt-4">
-                        <AllowlistManager
-                            selectedAllowlistId={formData.selectedAllowlistId}
-                            onAllowlistSelect={updateSelectedAllowlistId}
-                            onAllowlistInfoChange={updateSelectedAllowlistInfo}
-                        />
-                    </div>
-                )}
-            </div>
-
-            <div className="flex justify-between mt-6">
-                <Button
-                    variant="outline"
-                    onClick={goToPrevStep}
-                >
-                    <i className="fas fa-arrow-left mr-2"></i> 上一步
-                </Button>
-                <Button onClick={goToNextStep}>
-                    <i className="fas fa-arrow-right mr-2"></i> 下一步
-                </Button>
-            </div>
-        </>
-    );
-
-    // 渲染确认步骤中的参与权限信息
-    const renderPermissionInfo = () => {
-        if (formData.permissionType === "all") {
-            return "所有人可参与";
-        } else if (formData.selectedAllowlistInfo) {
-            return `指定地址可参与 ：来自白名单 ${formData.selectedAllowlistInfo.name}的(${formData.selectedAllowlistInfo.addressCount} 个地址)`;
-        } else {
-            return "指定地址可参与";
-        }
-    }
-
-    // 渲染确认步骤
-    const renderConfirmationStep = () => {
-        // 格式化日期时间
-        const formatDateTime = (dateTimeStr: string) => {
-            if (!dateTimeStr) return "";
-            const date = new Date(dateTimeStr);
-            return date.toLocaleString("zh-CN");
-        };
-
-        return (
-            <>
-                <div className="space-y-4">
-                    <Card className="bg-gray-50">
-                        <CardHeader>
-                            <CardTitle className="text-base">{formData.title}</CardTitle>
-                            <CardDescription>{formData.description}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div>
-                                <div className="font-bold text-sm mb-2">投票选项:</div>
-                                <ul className="list-none pl-2">
-                                    {formData.options.map((option) => (
-                                        <li key={option.id} className="text-sm mb-1">• {option.text || "空选项"}</li>
-                                    ))}
-                                </ul>
-                            </div>
-
-                            <div>
-                                <div className="font-bold text-sm mb-2">投票时间:</div>
-                                <div className="text-sm">
-                                    {formatDateTime(formData.startTime)} - {formatDateTime(formData.endTime)}
-                                </div>
-                            </div>
-
-                            <div>
-                                <div className="font-bold text-sm mb-2">参与权限:</div>
-                                <div className="text-sm">
-                                    {renderPermissionInfo()}
-                                </div>
-                            </div>
-
-                            {formData.attachments.length > 0 && (
-                                <div>
-                                    <div className="font-bold text-sm mb-2">附件:</div>
-                                    <div className="space-y-1">
-                                        {formData.attachments.map((file, index) => (
-                                            <div key={index} className="text-sm">
-                                                {file.name} ({Math.round(file.size / 1024)} KB)
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </CardContent>
-                    </Card>
-
-                    <Card className="bg-amber-50">
-                        <CardContent className="pt-4">
-                            <div className="flex">
-                                <i className="fas fa-exclamation-circle text-amber-500 mr-3 mt-1"></i>
-                                <div>
-                                    <div className="font-medium text-sm mb-1">创建投票将消耗少量SUI代币作为燃料费</div>
-                                </div>
-                            </div>
-                        </CardContent>
-                    </Card>
-                </div>
-
-                <div className="flex justify-between mt-6">
-                    <Button
-                        variant="outline"
-                        onClick={goToPrevStep}
-                        disabled={isProcessing}
-                    >
-                        <i className="fas fa-arrow-left mr-2"></i> 上一步
-                    </Button>
-                    <div className="flex flex-col items-end">
-                        <Button
-                            onClick={handleCreateVotePool}
-                            disabled={isProcessing}
-                            className="mb-2"
-                        >
-                            {isProcessing ? (
-                                <>
-                                    <i className="fas fa-spinner fa-spin mr-2"></i> 处理中...
-                                </>
-                            ) : (
-                                <>
-                                    <i className="fas fa-check mr-2"></i> 确认创建
-                                </>
-                            )}
-                        </Button>
-                        {isProcessing && (
-                            <div className="text-xs text-gray-500">{processingStatus}</div>
-                        )}
-                    </div>
-                </div>
-            </>
-        );
+        date.setHours(hours, parseInt(timeData.minute), 0, 0);
+        return date.toISOString();
     };
 
-    // 根据当前步骤渲染内容
-    const renderStepContent = () => {
-        switch (currentStep) {
-            case "basicInfo":
-                return renderBasicInfoStep();
-            case "options":
-                return renderOptionsStep();
-            case "time":
-                return renderTimeStep();
-            case "permissions":
-                return renderPermissionsStep();
-            case "confirmation":
-                return renderConfirmationStep();
-            default:
-                return null;
-        }
-    };
+
+
 
     return (
         <div className="max-w-2xl mx-auto">
-            <div className="flex items-center mb-6">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="mr-4"
-                    onClick={() => router.push("/")}
-                >
-                    <i className="fas fa-arrow-left"></i>
-                </Button>
-                <h1 className="text-xl font-medium">创建新投票</h1>
+            <div className="flex items-center mb-8">
+                <Link href="/" className="flex items-center text-gray-400 hover:text-purple-400 transition-colors">
+                    <ArrowLeft className="w-5 h-5 mr-2" />
+                    <span>Back</span>
+                </Link>
+                <h1 className="text-2xl font-bold ml-4 flex items-center">
+                    <Sparkles className="w-5 h-5 mr-2 text-purple-400" />
+                    Create New Vote
+                </h1>
             </div>
 
-            {renderStepTabs()}
-            {renderStepContent()}
+            <Tabs value={currentStep} onValueChange={(value) => setCurrentStep(value as FormStep)} className="mb-8">
+                <TabsList className="grid grid-cols-5 bg-black border border-purple-900/50 rounded-lg p-1">
+                    <TabsTrigger
+                        value="basic"
+                        className="data-[state=active]:bg-purple-900/30 data-[state=active]:text-purple-300"
+                    >
+                        Basic Info
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="options"
+                        className="data-[state=active]:bg-purple-900/30 data-[state=active]:text-purple-300"
+                    >
+                        Options
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="timing"
+                        className="data-[state=active]:bg-purple-900/30 data-[state=active]:text-purple-300"
+                    >
+                        Timing
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="permissions"
+                        className="data-[state=active]:bg-purple-900/30 data-[state=active]:text-purple-300"
+                    >
+                        Permissions
+                    </TabsTrigger>
+                    <TabsTrigger
+                        value="confirmation"
+                        className="data-[state=active]:bg-purple-900/30 data-[state=active]:text-purple-300"
+                    >
+                        Confirm
+                    </TabsTrigger>
+                </TabsList>
+
+                {/* Basic Info Tab */}
+                <TabsContent value="basic" className="mt-6">
+                    <div className="space-y-8">
+                        {/* Vote Title */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300 flex items-center">
+                                <HardDrive className="w-4 h-4 mr-2 text-purple-400" />
+                                Vote Title
+                            </label>
+                            <Input
+                                placeholder="Enter vote title"
+                                className="bg-black/50 border-purple-900/50 focus:border-purple-500 text-white placeholder:text-gray-500"
+                                value={formData.title}
+                                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                            />
+                        </div>
+
+                        {/* Vote Description */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300 flex items-center">
+                                <HardDrive className="w-4 h-4 mr-2 text-purple-400" />
+                                Vote Description
+                            </label>
+                            <Textarea
+                                placeholder="Detailed explanation of the vote's purpose and background"
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                className="bg-black/50 border-purple-900/50 focus:border-purple-500 text-white placeholder:text-gray-500 min-h-[150px]"
+                            />
+                        </div>
+
+                        {/* File Upload */}
+                        <FileUpload
+                            onFileSelect={(files) => setFormData({ ...formData, attachments: files })}
+                        />
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-end pt-4">
+                            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => goToNextStep()}>
+                                Next Step
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* Options Tab */}
+                <TabsContent value="options" className="mt-6">
+                    {/* Tab content remains the same */}
+                    <div className="space-y-8">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300 flex items-center">
+                                <HardDrive className="w-4 h-4 mr-2 text-purple-400" />
+                                Vote Options
+                            </label>
+
+                            <div className="space-y-3">
+                                {formData.options.map((option, index) => (
+                                    <div key={index} className="flex items-center gap-2">
+                                        <Input
+                                            value={option.text}
+                                            onChange={(e) =>
+                                                updateOptionText(option.id, e.target.value)
+                                            }
+                                            placeholder={`Option ${index + 1}`}
+                                            className="bg-black/50 border-purple-900/50 focus:border-purple-500 text-white placeholder:text-gray-500"
+                                        />
+                                        <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            onClick={() => removeOption(option.id)}
+                                            className="text-gray-500 hover:text-red-500"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <Button
+                                variant="outline"
+                                onClick={addOption}
+                                className="w-full mt-2 bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                            >
+                                <Plus className="w-4 h-4 mr-2" />
+                                Add Option
+                            </Button>
+
+                            <p className="text-xs text-gray-500 mt-2">At least 2 options are required</p>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-between pt-4">
+                            <Button
+                                variant="outline"
+                                className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                                onClick={() => goToPrevStep()}
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Previous
+                            </Button>
+
+                            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => goToNextStep()}>
+                                Next Step
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* Timing Tab */}
+                <TabsContent value="timing" className="mt-6">
+                    {/* Tab content remains the same */}
+                    <div className="space-y-8">
+                        {/* Start Time */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300 flex items-center">
+                                <CalendarIcon className="w-4 h-4 mr-2 text-purple-400" />
+                                Start Time
+                            </label>
+
+                            <div className="flex gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-start text-left font-normal bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {formData.startTime.date ? format(formData.startTime.date, "PPP") : <span>Select date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 bg-black/90 border-purple-900/50">
+                                        <Calendar
+                                            mode="single"
+                                            selected={formData.startTime.date}
+                                            onSelect={(date) => updateDateTime('startTime', 'date', date)}
+                                            initialFocus
+                                            className="bg-black text-white"
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+
+                                <div className="flex gap-2">
+                                    <Select
+                                        value={formData.startTime.hour}
+                                        onValueChange={(value) => updateDateTime('startTime', 'hour', value)}
+                                    >
+                                        <SelectTrigger className="w-20 bg-black/50 border-purple-900/50 text-gray-300">
+                                            <SelectValue placeholder="09" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
+                                            {Array.from({ length: 12 }, (_, i) => (
+                                                <SelectItem key={i} value={String(i + 1).padStart(2, "0")}
+                                                    className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">
+                                                    {String(i + 1).padStart(2, "0")}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        value={formData.startTime.minute}
+                                        onValueChange={(value) => updateDateTime('startTime', 'minute', value)}
+                                    >
+                                        <SelectTrigger className="w-20 bg-black/50 border-purple-900/50 text-gray-300">
+                                            <SelectValue placeholder="00" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
+                                            {Array.from({ length: 60 }, (_, i) => (
+                                                <SelectItem key={i} value={String(i).padStart(2, "0")}
+                                                    className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">
+                                                    {String(i).padStart(2, "0")}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        value={formData.startTime.period}
+                                        onValueChange={(value) => updateDateTime('startTime', 'period', value as 'AM' | 'PM')}
+                                    >
+                                        <SelectTrigger className="w-20 bg-black/50 border-purple-900/50 text-gray-300">
+                                            <SelectValue placeholder="AM" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
+                                            <SelectItem value="AM" className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">AM</SelectItem>
+                                            <SelectItem value="PM" className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">PM</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* End Time */}
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium text-gray-300 flex items-center">
+                                <Clock className="w-4 h-4 mr-2 text-purple-400" />
+                                End Time
+                            </label>
+
+                            <div className="flex gap-2">
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-start text-left font-normal bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {formData.endTime.date ? format(formData.endTime.date, "PPP") : <span>Select date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 bg-black/90 border-purple-900/50">
+                                        <Calendar
+                                            mode="single"
+                                            selected={formData.endTime.date}
+                                            onSelect={(date) => updateDateTime('endTime', 'date', date)}
+                                            initialFocus
+                                            className="bg-black text-white"
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+
+                                <div className="flex gap-2">
+                                    <Select
+                                        value={formData.endTime.hour}
+                                        onValueChange={(value) => updateDateTime('endTime', 'hour', value)}
+                                    >
+                                        <SelectTrigger className="w-20 bg-black/50 border-purple-900/50 text-gray-300">
+                                            <SelectValue placeholder="09" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
+                                            {Array.from({ length: 12 }, (_, i) => (
+                                                <SelectItem key={i} value={String(i + 1).padStart(2, "0")}
+                                                    className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">
+                                                    {String(i + 1).padStart(2, "0")}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        value={formData.endTime.minute}
+                                        onValueChange={(value) => updateDateTime('endTime', 'minute', value)}
+                                    >
+                                        <SelectTrigger className="w-20 bg-black/50 border-purple-900/50 text-gray-300">
+                                            <SelectValue placeholder="00" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
+                                            {Array.from({ length: 60 }, (_, i) => (
+                                                <SelectItem key={i} value={String(i).padStart(2, "0")}
+                                                    className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">
+                                                    {String(i).padStart(2, "0")}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+
+                                    <Select
+                                        value={formData.endTime.period}
+                                        onValueChange={(value) => updateDateTime('endTime', 'period', value as 'AM' | 'PM')}
+                                    >
+                                        <SelectTrigger className="w-20 bg-black/50 border-purple-900/50 text-gray-300">
+                                            <SelectValue placeholder="AM" />
+                                        </SelectTrigger>
+                                        <SelectContent className="bg-black/90 border-purple-900/50 text-gray-300">
+                                            <SelectItem value="AM" className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">AM</SelectItem>
+                                            <SelectItem value="PM" className="text-gray-300 data-[state=checked]:text-purple-400 hover:bg-gray-800">PM</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-between pt-4">
+                            <Button
+                                variant="outline"
+                                className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                                onClick={() => goToPrevStep()}
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Previous
+                            </Button>
+
+                            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => goToNextStep()}>
+                                Next Step
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* Permissions Tab */}
+                <TabsContent value="permissions" className="mt-6">
+                    {/* Tab content remains the same */}
+                    <div className="space-y-8">
+                        <div className="space-y-4">
+                            <label className="text-sm font-medium text-gray-300 flex items-center">
+                                <Users className="w-4 h-4 mr-2 text-purple-400" />
+                                Participation Rights
+                            </label>
+
+                            <RadioGroup
+                                defaultValue="specific"
+                                className="space-y-3"
+                                value={formData.permissionType}
+                                onValueChange={(value) =>
+                                    setFormData({ ...formData, permissionType: value as "all" | "specific" })
+                                }
+                            >
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="all" id="all" className="border-purple-500 text-purple-500" />
+                                    <label htmlFor="all" className="text-sm font-medium leading-none text-gray-300">
+                                        Everyone can participate
+                                    </label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="specific" id="specific" className="border-purple-500 text-purple-500" />
+                                    <label htmlFor="specific" className="text-sm font-medium leading-none text-gray-300">
+                                        Specified addresses can participate
+                                    </label>
+                                </div>
+                            </RadioGroup>
+                        </div>
+
+                        {formData.permissionType === "specific" && (
+                            <AllowlistManager
+                                selectedAllowlistId={formData.selectedAllowlistId}
+                                onAllowlistSelect={updateSelectedAllowlistId}
+                                onAllowlistInfoChange={updateSelectedAllowlistInfo}
+                            />
+                        )}
+
+                        {/* Action Buttons */}
+                        <div className="flex justify-between pt-4">
+                            <Button
+                                variant="outline"
+                                className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                                onClick={() => goToPrevStep()}
+                            >
+                                <ArrowLeft className="w-4 h-4 mr-2" />
+                                Previous
+                            </Button>
+
+                            <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={() => goToNextStep()}>
+                                Next Step
+                                <ArrowRight className="w-4 h-4 ml-2" />
+                            </Button>
+                        </div>
+                    </div>
+                </TabsContent>
+
+                {/* Confirm Tab */}
+                <TabsContent value="confirmation" className="mt-6">
+                    {/* Tab content remains the same */}
+                    <div className="space-y-8">
+                        <div className="bg-black/30 border border-purple-900/50 rounded-lg p-6">
+                            <h2 className="text-xl font-bold mb-4">test</h2>
+                            <p className="text-gray-400 mb-6">{formData.description}</p>
+
+                            <div className="space-y-6">
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                                        <HardDrive className="w-4 h-4 mr-2 text-purple-400" />
+                                        Vote Options:
+                                    </h3>
+                                    <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
+                                        {formData.options.map((option) => (
+                                            <li key={option.id}>{option.text || "Empty Option"}</li>
+                                        ))}
+                                    </ul>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                                        <Clock className="w-4 h-4 mr-2 text-purple-400" />
+                                        Voting Period:
+                                    </h3>
+                                    <p className="text-gray-400 ml-6">
+                                        {formData.startTime.date ? (
+                                            `${format(formData.startTime.date, "PPP")} ${formData.startTime.hour}:${formData.startTime.minute} ${formData.startTime.period} `
+                                        ) : "Not set"}  -
+                                        {formData.endTime.date ? (
+                                            ` ${format(formData.endTime.date, "PPP")} ${formData.endTime.hour}:${formData.endTime.minute} ${formData.endTime.period}`
+                                        ) : "Not set"}
+                                    </p>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                                        <Users className="w-4 h-4 mr-2 text-purple-400" />
+                                        Participation Rights:
+                                    </h3>
+                                    <p className="text-gray-400 ml-6">
+                                        {formData.permissionType === "all" ? "Everyone can participate" : `Specified addresses can participate - (${formData.selectedAllowlistInfo?.addressCount} addresses from whitelist ${formData.selectedAllowlistInfo?.name} )`}
+                                    </p>
+                                </div>
+
+                                {formData.attachments.length > 0 && (
+                                    <div>
+                                        <h3 className="text-sm font-medium text-gray-300 mb-2 flex items-center">
+                                            <FileLock2 className="w-4 h-4 mr-2 text-purple-400" />
+                                            Attachments:
+                                        </h3>
+                                        <ul className="list-disc list-inside space-y-1 text-gray-400 ml-4">
+                                            {formData.attachments.map((attachment, index) => (
+                                                <li key={index}>{attachment.name} ({Math.round(attachment.size / 1024)} KB)</li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                )}
+                            </div>
+
+
+                            {/* Action Buttons */}
+                            <div className="flex justify-between pt-4">
+                                <Button
+                                    variant="outline"
+                                    className="bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
+                                    onClick={() => goToPrevStep()}
+                                >
+                                    <ArrowLeft className="w-4 h-4 mr-2" />
+                                    Previous
+                                </Button>
+
+                                <Button className="bg-purple-600 hover:bg-purple-700 text-white" onClick={handleCreateVotePool}>
+                                    <Check className="w-4 h-4 mr-2" />
+                                    Confirm Creation
+                                </Button>
+                            </div>
+                        </div>
+
+                        {validationError && (
+                            <div className="bg-red-900/10 border border-red-500/30 rounded-lg p-4 flex items-start mb-4">
+                                <AlertCircle className="w-5 h-5 text-red-500 mr-3 mt-0.5 flex-shrink-0" />
+                                <p className="text-red-200 text-sm">{validationError}</p>
+                            </div>
+                        )}
+
+                        {isProcessing && (
+                            <div className="mt-4 bg-black/30 border border-purple-900/50 rounded-lg p-4">
+                                <div className="flex items-center space-x-3">
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-purple-400"></div>
+                                    <p className="text-purple-300">{processingStatus}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        <div className="bg-amber-900/10 border border-amber-500/30 rounded-lg p-4 flex items-start">
+                            <AlertCircle className="w-5 h-5 text-amber-500 mr-3 mt-0.5 flex-shrink-0" />
+                            <p className="text-amber-200 text-sm">Creating a vote will consume SUI tokens as gas fees</p>
+                        </div>
+                    </div>
+                </TabsContent>
+            </Tabs>
         </div>
     );
 }

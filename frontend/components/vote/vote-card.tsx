@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { VotePoolDisplayType, VoteStatus } from "@/types";
+import { ExternalLink, PieChart, Users } from "lucide-react";
 
 // 投票卡片属性
 interface VoteCardProps {
@@ -29,13 +30,13 @@ export function VoteCard({ vote }: VoteCardProps) {
     const getStatusText = (status: VoteStatus) => {
         switch (status) {
             case VoteStatus.ACTIVE:
-                return "进行中";
+                return "Active";
             case VoteStatus.UPCOMING:
-                return "即将开始";
+                return "Upcoming";
             case VoteStatus.ENDED:
-                return "已结束";
+                return "Ended";
             default:
-                return "未知状态";
+                return "Unknown Status";
         }
     };
 
@@ -44,19 +45,19 @@ export function VoteCard({ vote }: VoteCardProps) {
         switch (status) {
             case VoteStatus.ACTIVE:
                 return {
-                    text: "参与投票",
+                    text: "Vote",
                     icon: "vote-yea",
                     variant: "default" as const
                 };
             case VoteStatus.UPCOMING:
                 return {
-                    text: "查看详情",
+                    text: "View Details",
                     icon: "clock",
                     variant: "outline" as const
                 };
             case VoteStatus.ENDED:
                 return {
-                    text: "查看结果",
+                    text: "View Results",
                     icon: "chart-bar",
                     variant: "outline" as const
                 };
@@ -88,28 +89,33 @@ export function VoteCard({ vote }: VoteCardProps) {
     };
 
     return (
-        <div className="bg-white rounded-lg border border-gray-200 shadow-sm relative p-4 min-h-[220px] flex flex-col">
-            <div className="absolute top-3 right-3">
-                <Badge variant={badgeVariant}>{statusText}</Badge>
+        <div className="border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg p-6 relative h-[260px] flex flex-col">
+            <div className="absolute top-4 right-4">
+                <Badge variant={badgeVariant} className="px-3 py-1.5 rounded-full border border-red-900/50">{statusText}</Badge>
             </div>
 
-            <div className="text-center flex-grow mb-4 mt-6">
-                <div className="w-12 h-12 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-2">
-                    <i className={`fas fa-${icon} text-primary text-lg`}></i>
+            <div className="text-center flex-grow">
+                <div className="flex justify-center mb-4">
+                    <div className="bg-purple-900/30 p-3 rounded-full">
+                        <PieChart className="w-6 h-6 text-purple-400" />
+                    </div>
                 </div>
                 <h3 className="font-medium text-base mb-1 line-clamp-2">{vote.title}</h3>
-                <div className="text-xs text-gray-500">
-                    <i className="fas fa-users mr-1"></i> {vote.participantsCount}人参与
+
+                <div className="flex items-center justify-center text-sm text-gray-400">
+                    <Users className="w-4 h-4 mr-1" />
+                    <span>{vote.participantsCount} participants</span>
                 </div>
             </div>
 
-            <div className="mt-auto">
+            <div className="mt-auto pt-4">
                 <Link href={getLinkHref()} passHref>
                     <Button
-                        variant={buttonProps.variant}
-                        className="w-full"
+                        variant="outline"
+                        className="w-full bg-black/50 border-purple-900/50 hover:bg-purple-900/20 hover:border-purple-500 text-gray-300 hover:text-purple-400 transition-colors"
                     >
-                        <i className={`fas fa-${buttonProps.icon} mr-2`}></i> {buttonProps.text}
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        {buttonProps.text}
                     </Button>
                 </Link>
             </div>

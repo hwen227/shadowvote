@@ -9,6 +9,7 @@ import { decryptVotePool, MoveCallConstructor } from "@/contracts/seal";
 import { networkConfig } from "@/contracts";
 import { formatAddress } from "@/lib/utils";
 import { FilePreview } from "@/components/vote/file-preview";
+import { Calendar, LinkIcon, User, Users } from "lucide-react";
 
 interface VoteDecryptedDetailsProps {
     votePoolObjectData: SuiResponseVotePool | null;
@@ -101,38 +102,37 @@ export default function VoteDecryptedDetails({
         }
     }, [sessionKey, votePoolObjectData, decryptedVotePoolData, handleDecryptVoteData, hasError]);
 
-    // 如果尚未解密且正在加载，显示加载状态
+
     if (isLoading && !decryptedVotePoolData) {
         return (
-            <div className="flex flex-col items-center justify-center py-12 border border-dashed rounded-lg mb-8">
+            <div className="flex flex-col items-center justify-center py-12 border-purple-900 border-dashed rounded-lg mb-8">
                 <div className="mb-4">
-                    <div className="w-8 h-8 border-4 border-t-blue-500 border-b-blue-200 border-l-blue-200 border-r-blue-200 rounded-full animate-spin"></div>
+                    <div className="w-8 h-8 border-4 border-t-purple-500 border-b-pureple-200 border-l-purple-200 border-r-purple-200 rounded-full animate-spin"></div>
                 </div>
-                <p className="text-gray-600">正在获取访问权限...</p>
+                <p className="text-gray-600">getting access...</p>
             </div>
         );
     }
 
-    // 如果尚未解密且发生错误，显示重试按钮
     if (!decryptedVotePoolData && hasError) {
         return (
             <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg mb-8">
-                <p className="text-gray-600 mb-4">解密失败，您可能没有权限查看此投票</p>
+                <p className="text-gray-600 mb-4">decryption failed, you may not have permission to view this vote</p>
                 <Button
                     onClick={handleDecryptVoteData}
                     disabled={isLoading || isDecrypting.current}
                 >
-                    {isLoading ? '处理中...' : '重新解密'}
+                    {isLoading ? 'Processing' : 'Try again'}
                 </Button>
             </div>
         );
     }
 
-    // 如果尚未解密但无错误和非加载状态，可能是等待sessionKey
+
     if (!decryptedVotePoolData) {
         return (
             <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg mb-8">
-                <p className="text-gray-600 mb-4">等待解密...</p>
+                <p className="text-gray-600 mb-4">decryption in progress...</p>
             </div>
         );
     }
@@ -140,15 +140,40 @@ export default function VoteDecryptedDetails({
     // 已解密，显示详细信息
     return (
         <>
-            <div className="mb-8">
-                <p className="text-gray-700 mb-4">{decryptedVotePoolData.description}</p>
+            <div className="border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg p-6 mb-6">
+                <p className="text-gray-300 mb-6">{decryptedVotePoolData.description}</p>
 
-                <div className="text-sm text-gray-500 space-y-1 mb-6">
-                    <div><i className="fas fa-user mr-2"></i> 创建者: {formatAddress(votePoolObjectData?.creator || '')}</div>
-                    <div><i className="fas fa-users mr-2"></i> 已有 {votePoolObjectData?.participantsCount || 0} 人参与</div>
-                    <div><i className="fas fa-clock mr-2"></i> 开始时间: {new Date(Number(votePoolObjectData?.start || 0)).toLocaleString('zh-CN')}</div>
-                    <div><i className="fas fa-hourglass-end mr-2"></i> 结束时间: {new Date(Number(votePoolObjectData?.end || 0)).toLocaleString('zh-CN')}</div>
-                    <div><i className="fas fa-link mr-2"></i>Object ID: {voteId}</div>
+                <div className="text-sm space-y-3 mb-6">
+                    <div className="flex items-center text-gray-400">
+                        <User className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Creator:</span>
+                        <span className="font-mono">{formatAddress(votePoolObjectData?.creator || '')}</span>
+                    </div>
+
+                    <div className="flex items-center text-gray-400">
+                        <Users className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Participants:</span>
+                        <span className="font-mono">{votePoolObjectData?.participantsCount || 0}</span>
+                    </div>
+
+
+                    <div className="flex items-center text-gray-400">
+                        <Calendar className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Start Time:</span>
+                        <span className="font-mono">{new Date(Number(votePoolObjectData?.start || 0)).toLocaleString('zh-CN')}</span>
+                    </div>
+                    <div className="flex items-center text-gray-400">
+                        <Calendar className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">End Time:</span>
+                        <span className="font-mono">{new Date(Number(votePoolObjectData?.end || 0)).toLocaleString('zh-CN')}</span>
+                    </div>
+
+                    <div className="flex items-center text-gray-400">
+                        <LinkIcon className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Object ID:</span>
+                        <span className="font-mono">{voteId}</span>
+                    </div>
+
                 </div>
             </div>
 

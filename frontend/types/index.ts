@@ -10,7 +10,6 @@ export type WalrusAttchFileBlob = {
     name: string
 }
 
-// 投票类型定义
 export interface EncryptedInputVotePool {
     title: string;
     description: string;
