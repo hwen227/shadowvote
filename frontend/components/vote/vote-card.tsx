@@ -70,15 +70,11 @@ export function VoteCard({ vote }: VoteCardProps) {
         }
     };
 
-    // 获取图标
-    const getIcon = (iconType: string = "chart-pie") => {
-        return iconType;
-    };
+
 
     const buttonProps = getButtonProps(vote.status);
     const badgeVariant = getBadgeVariant(vote.status);
     const statusText = getStatusText(vote.status);
-    const icon = getIcon(vote.iconType);
 
     // 构建链接地址
     const getLinkHref = () => {

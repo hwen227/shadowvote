@@ -437,7 +437,11 @@ export function VoteForm() {
     }
 
     // 更新时间的辅助函数
-    const updateDateTime = (timeType: 'startTime' | 'endTime', field: 'date' | 'hour' | 'minute' | 'period', value: any) => {
+    const updateDateTime = <F extends 'date' | 'hour' | 'minute' | 'period'>(
+        timeType: 'startTime' | 'endTime',
+        field: F,
+        value: F extends 'date' ? Date | undefined : F extends 'period' ? 'AM' | 'PM' : string
+    ) => {
         setFormData(prev => ({
             ...prev,
             [timeType]: {
