@@ -103,7 +103,7 @@ export function FilePreview({ files }: FilePreviewProps) {
     };
 
     const renderPreviewContent = (file: FileWithUrl) => {
-        if (!file.url) return <div className="text-red-500">无法加载文件</div>;
+        if (!file.url) return <div className="text-red-500">Load File Failed</div>;
 
         switch (file.type) {
             case 'image':
@@ -134,28 +134,28 @@ export function FilePreview({ files }: FilePreviewProps) {
             case 'doc':
                 return (
                     <div className="p-4 text-center">
-                        <p>Word文档预览暂不支持</p>
+                        <p>Word document preview is not supported</p>
                         <a
                             href={file.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-500 hover:text-blue-700 underline mt-2 block"
                         >
-                            点击下载查看
+                            Click to download
                         </a>
                     </div>
                 );
             default:
                 return (
                     <div className="p-4 text-center">
-                        <p>不支持的文件类型</p>
+                        <p>Unsupported file type</p>
                         <a
                             href={file.url}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-blue-500 hover:text-blue-700 underline mt-2 block"
                         >
-                            点击下载查看
+                            Click to download
                         </a>
                     </div>
                 );
@@ -163,11 +163,11 @@ export function FilePreview({ files }: FilePreviewProps) {
     };
 
     return (
-        <div className="space-y-2 border border-dashed rounded-lg p-4 mb-4">
-            <div className="font-bold text-sm mb-3">attachments:</div>
+        <div className="border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg p-6 mb-6">
+            <div className="font-bold text-lg font-medium mb-4">Attachments:</div>
             {isLoading ? (
                 <div className="flex items-center justify-center py-4 space-x-3">
-                    <div className="w-4 h-4 border-2 border-t-blue-500 border-blue-200 rounded-full animate-spin"></div>
+                    <div className="w-4 h-4 border-2 border-t-purple-500 border-purple-200 rounded-full animate-spin"></div>
                     <span className="text-sm text-gray-500">Loading Attachments...</span>
                 </div>
             ) : (
@@ -184,7 +184,7 @@ export function FilePreview({ files }: FilePreviewProps) {
                                         file.type === 'txt' ? 'file-alt' :
                                             'file'
                                 } text-gray-500`}></i>
-                            <span className="text-sm text-blue-500 hover:text-blue-700">
+                            <span className="text-sm text-purple-400 hover:text-purple-500/80 transition-colors">
                                 {file.name}
                             </span>
                         </div>
@@ -193,9 +193,9 @@ export function FilePreview({ files }: FilePreviewProps) {
             )}
 
             <Dialog open={isPreviewOpen} onOpenChange={setIsPreviewOpen}>
-                <DialogContent className="max-w-4xl w-full">
+                <DialogContent className="bg-black border border-purple-900/50 text-white max-w-4xl">
                     <DialogHeader>
-                        <DialogTitle>{selectedFile?.name}</DialogTitle>
+                        <DialogTitle className="text-lg font-medium">{selectedFile?.name}</DialogTitle>
                         <DialogDescription>
                             Preview of the selected file
                         </DialogDescription>

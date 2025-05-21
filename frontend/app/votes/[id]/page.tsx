@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, use, useEffect, useCallback } from "react";
+import { useState, use, useEffect, useCallback, useRef } from "react";
 import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { getVotePoolById } from "@/contracts/query";
 import { SuiResponseVotePool, EncryptedInputVotePool } from "@/types";
@@ -11,6 +11,7 @@ import PublicVoteDetails from "./components/PublicVoteDetails";
 import VoteCast from "./components/VoteCast";
 import VoteHeader from "./components/VoteHeader";
 import { castVoteTx, castVoteTx_woal } from "@/contracts/transaction";
+import { Button } from "@/components/ui/button";
 
 export default function VoteDetailPage({ params }: { params: { id: string } }) {
     const [votePoolObjectData, setVotePoolObjectData] = useState<SuiResponseVotePool | null>(null);
@@ -26,6 +27,18 @@ export default function VoteDetailPage({ params }: { params: { id: string } }) {
         : params.id;
     const currentAccount = useCurrentAccount();
     const { mutate: signPersonalMessage } = useSignPersonalMessage();
+    const prevAccountRef = useRef<string | null>(null);
+
+    // 监听账户变化并刷新页面
+    useEffect(() => {
+        if (prevAccountRef.current !== null &&
+            prevAccountRef.current !== currentAccount?.address) {
+            // 账户已变化，刷新页面
+            window.location.reload();
+        }
+        // 保存当前账户地址以便下次比较
+        prevAccountRef.current = currentAccount?.address || null;
+    }, [currentAccount]);
 
     const fetchVoteData = useCallback(async () => {
         try {
@@ -107,20 +120,26 @@ export default function VoteDetailPage({ params }: { params: { id: string } }) {
 
     if (!currentAccount) {
         return (
-            <div className="container mx-auto p-4 text-center">
-                <p className="mt-4 text-lg">请先连接钱包后继续操作</p>
+            <div className="min-h-screen bg-black text-white">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black z-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiM4YjVjZjYiIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9wYXR0ZXJuPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
+                </div>
+                <div className="container mx-auto p-4 text-center relative z-10">
+                    <p className="text-gray-300 mt-16 text-2xl font-semibold">Please Connect Your Wallet</p>
+                </div>
             </div>
         );
     }
 
     if (voteNotFound) {
         return (
-            <div className="container max-w-3xl mx-auto px-4 py-8">
-                <div className="flex items-center mb-6">
-                    <h1 className="text-xl font-medium">投票详情</h1>
+
+            <div className="min-h-screen bg-black text-white">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black z-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiM4YjVjZjYiIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9wYXR0ZXJuPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
                 </div>
-                <div className="text-center p-8 border border-dashed rounded-lg">
-                    <p className="text-xl text-gray-600 mb-4">抱歉，该投票池不存在</p>
+                <div className="container mx-auto p-4 text-center relative z-10">
+                    <p className="text-gray-300 mt-16 text-2xl font-semibold">Sorry, the vote pool does not exist</p>
                 </div>
             </div>
         );
@@ -132,10 +151,14 @@ export default function VoteDetailPage({ params }: { params: { id: string } }) {
         currentSessionKey.getAddress() === currentAccount.address;
 
     return (
-        <>
-            <VoteHeader votePoolObjectData={votePoolObjectData} />
+        <div className="min-h-screen bg-black text-white">
+            {/* Animated background with tech pattern */}
+            <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black z-0 overflow-hidden">
+                <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiM4YjVjZjYiIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9wYXR0ZXJuPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
+            </div>
+            <div className="container mx-auto max-w-4xl px-4 py-8 relative z-10">
+                <VoteHeader votePoolObjectData={votePoolObjectData} />
 
-            <div className="container max-w-3xl mx-auto px-4">
                 {/* 根据投票类型决定显示哪种组件 */}
                 {isAllowlist ? (
                     // 需要验证的投票
@@ -152,14 +175,13 @@ export default function VoteDetailPage({ params }: { params: { id: string } }) {
 
                         {/* 如果没有有效的会话密钥，显示签名按钮 */}
                         {!isSessionKeyValid && (
-                            <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg mb-8">
-                                <p className="text-gray-600 mb-4">该投票需验证身份，请签名以查看投票详情</p>
-                                <button
-                                    className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                            <div className="flex flex-col items-center justify-center py-8 border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg mb-8">
+                                <p className="text-gray-400 mb-4">This vote requires identity verification, please sign to view vote details</p>
+                                <Button
                                     onClick={signSessionKey}
-                                    disabled={isSigningMessage}>
-                                    {isSigningMessage ? '签名中...' : '签名'}
-                                </button>
+                                    className="bg-purple-500 hover:bg-purple-600">
+                                    {isSigningMessage ? 'Signing...' : 'Sign'}
+                                </Button>
                             </div>
                         )}
 
@@ -192,6 +214,6 @@ export default function VoteDetailPage({ params }: { params: { id: string } }) {
                     </>
                 )}
             </div>
-        </>
+        </div>
     );
 } 

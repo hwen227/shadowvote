@@ -41,7 +41,7 @@ public(package) fun add_vote(votebox: &mut EncryptedVoteBox, vote : EncryptedVot
     vector::push_back<EncryptedVote>(&mut votebox.votes,vote);
 }
 
-public(package) fun has_voted(votebox: &EncryptedVoteBox, voter: address): bool {
+public fun has_voted(votebox: &EncryptedVoteBox, voter: address): bool {
     let mut i = 0;
     let len = vector::length(&votebox.votes);
 

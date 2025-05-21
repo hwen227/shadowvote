@@ -2,6 +2,7 @@ import { SuiResponseVotePool, EncryptedInputVotePool } from "@/types";
 import { formatAddress } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { FilePreview } from "@/components/vote/file-preview";
+import { Calendar, LinkIcon, User, Users } from "lucide-react";
 
 
 interface PublicVoteDetailsProps {
@@ -50,22 +51,45 @@ export default function PublicVoteDetails({
 
     return (
         <>
-            <div className="mb-8">
-                <p className="text-gray-700 mb-4">{votePoolData.description}</p>
+            <div className="border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg p-6 mb-6">
+                <p className="text-gray-300 mb-6">{votePoolData.description}</p>
 
-                <div className="text-sm text-gray-500 space-y-1 mb-6">
-                    <div><i className="fas fa-user mr-2"></i> 创建者: {formatAddress(votePoolObjectData?.creator || '')}</div>
-                    <div><i className="fas fa-users mr-2"></i> 已有 {votePoolObjectData?.participantsCount || 0} 人参与</div>
-                    <div><i className="fas fa-clock mr-2"></i> 开始时间: {new Date(Number(votePoolObjectData?.start || 0)).toLocaleString('zh-CN')}</div>
-                    <div><i className="fas fa-hourglass-end mr-2"></i> 结束时间: {new Date(Number(votePoolObjectData?.end || 0)).toLocaleString('zh-CN')}</div>
-                    <div><i className="fas fa-link mr-2"></i>Object ID: {voteId}</div>
+                <div className="text-sm space-y-3 mb-6">
+                    <div className="flex items-center text-gray-400">
+                        <User className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Creator:</span>
+                        <span className="font-mono">{formatAddress(votePoolObjectData?.creator || '')}</span>
+                    </div>
+
+                    <div className="flex items-center text-gray-400">
+                        <Users className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Participants:</span>
+                        <span className="font-mono">{votePoolObjectData?.participantsCount || 0}</span>
+                    </div>
+
+                    <div className="flex items-center text-gray-400">
+                        <Calendar className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Start Time:</span>
+                        <span className="font-mono">{new Date(Number(votePoolObjectData?.start || 0)).toLocaleString('zh-CN')}</span>
+                    </div>
+
+                    <div className="flex items-center text-gray-400">
+                        <Calendar className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">End Time:</span>
+                        <span className="font-mono">{new Date(Number(votePoolObjectData?.end || 0)).toLocaleString('zh-CN')}</span>
+                    </div>
+
+                    <div className="flex items-center text-gray-400">
+                        <LinkIcon className="w-4 h-4 mr-2 text-purple-400" />
+                        <span className="mr-1">Object ID:</span>
+                        <span className="font-mono">{voteId}</span>
+                    </div>
                 </div>
             </div>
 
             {votePoolData.attch_file_blobs && votePoolData.attch_file_blobs.length > 0 && (
                 <FilePreview files={votePoolData.attch_file_blobs} />
             )}
-
         </>
     );
 }

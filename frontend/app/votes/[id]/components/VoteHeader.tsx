@@ -1,9 +1,10 @@
-import { Button } from "@/components/ui/button";
+
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { getRemainingTime } from "@/lib/utils";
 import { SuiResponseVotePool } from "@/types";
 import { VoteStatus } from "@/types";
+import { ArrowLeft } from "lucide-react";
 
 interface VoteHeaderProps {
     votePoolObjectData: SuiResponseVotePool | null;
@@ -30,11 +31,11 @@ export default function VoteHeader({ votePoolObjectData, title = "投票详情" 
     const getStatusBadge = (status: VoteStatus) => {
         switch (status) {
             case VoteStatus.UPCOMING:
-                return <Badge variant="secondary" className="mr-3">即将开始</Badge>;
+                return <Badge variant="secondary" className="mr-3">Upcoming</Badge>;
             case VoteStatus.ACTIVE:
-                return <Badge variant="success" className="mr-3">进行中</Badge>;
+                return <Badge variant="success" className="mr-3">Active</Badge>;
             case VoteStatus.ENDED:
-                return <Badge variant="destructive" className="mr-3">已结束</Badge>;
+                return <Badge variant="destructive" className="mr-3">Ended</Badge>;
         }
     };
 
@@ -43,30 +44,25 @@ export default function VoteHeader({ votePoolObjectData, title = "投票详情" 
 
         switch (status) {
             case VoteStatus.UPCOMING:
-                return `开始时间: ${new Date(Number(votePoolObjectData.start)).toLocaleString('zh-CN')}`;
+                return `Start Time: ${new Date(Number(votePoolObjectData.start)).toLocaleString('zh-CN')}`;
             case VoteStatus.ACTIVE:
-                return `剩余时间: ${getRemainingTime(votePoolObjectData.end)}`;
+                return `Remaining Time: ${getRemainingTime(votePoolObjectData.end)}`;
             case VoteStatus.ENDED:
-                return `结束于: ${new Date(Number(votePoolObjectData.end)).toLocaleString('zh-CN')}`;
+                return `End Time: ${new Date(Number(votePoolObjectData.end)).toLocaleString('zh-CN')}`;
         }
     };
 
     const status = getVoteStatus();
 
     return (
-        <div className="container max-w-3xl mx-auto px-4 pt-8">
-            <div className="flex items-center mb-6">
-                <Button
-                    variant="outline"
-                    size="icon"
-                    className="mr-4"
-                    asChild
-                >
-                    <Link href="/votes">
-                        <i className="fas fa-arrow-left"></i>
-                    </Link>
-                </Button>
-                <h1 className="text-xl font-medium">{title}</h1>
+        <>
+            <div className="mb-6">
+
+                <Link href="/votes" className="flex items-center text-gray-400 hover:text-purple-400 transition-colors">
+                    <ArrowLeft className="w-5 h-5 mr-2" />
+                    <span className="text-xl font-medium">{title}</span>
+                </Link>
+
             </div>
 
             <div className="mb-4">
@@ -78,6 +74,6 @@ export default function VoteHeader({ votePoolObjectData, title = "投票详情" 
                     </span>
                 </div>
             </div>
-        </div>
+        </>
     );
 } 
