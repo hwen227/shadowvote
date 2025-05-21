@@ -7,7 +7,13 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2 } from "lucide-react";
 
-export default function VoteSuccessPage({ params }: { params: { id: string } }) {
+type VoteSuccessPageProps = {
+    params: {
+        id: string
+    }
+}
+
+export default function VoteSuccessPage({ params }: VoteSuccessPageProps) {
     const router = useRouter();
     const voteId = params instanceof Promise
         ? use(params).id

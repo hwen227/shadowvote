@@ -13,7 +13,13 @@ import VoteHeader from "./components/VoteHeader";
 import { castVoteTx, castVoteTx_woal } from "@/contracts/transaction";
 import { Button } from "@/components/ui/button";
 
-export default function VoteDetailPage({ params }: { params: { id: string } }) {
+type VoteDetailPageProps = {
+    params: {
+        id: string
+    }
+}
+
+export default function VoteDetailPage({ params }: VoteDetailPageProps) {
     const [votePoolObjectData, setVotePoolObjectData] = useState<SuiResponseVotePool | null>(null);
     const [decryptedVotePoolData, setDecryptedVotePoolData] = useState<EncryptedInputVotePool | null>(null);
     const [voteNotFound, setVoteNotFound] = useState(false);

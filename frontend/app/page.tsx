@@ -54,7 +54,7 @@ export default function HomePage() {
                                 </Link>
                                 <Button
                                     variant="outline"
-                                    className="border-purple-700 text-purple-400 hover:bg-purple-900/20 px-8 py-6 rounded-md w-full sm:w-auto"
+                                    className="border-purple-700 text-purple-400 hover:bg-purple-900/20 px-8 py-6 rounded-md w-full sm:w-auto hover:text-purple-400"
                                     onClick={() => router.push('/votes')}
                                 >
                                     Explore Votes

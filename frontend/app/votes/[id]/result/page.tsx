@@ -16,7 +16,13 @@ import { MoveCallConstructor } from "@/contracts/seal";
 import VoteHeader from "../components/VoteHeader";
 import { Button } from "@/components/ui/button";
 
-export default function VoteResultPage({ params }: { params: { id: string } }) {
+type VoteResultPageProps = {
+    params: {
+        id: string
+    }
+}
+
+export default function VoteResultPage({ params }: VoteResultPageProps) {
 
     const voteId = params instanceof Promise
         ? use(params).id

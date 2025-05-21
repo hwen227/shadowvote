@@ -8,6 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowLeft, Check, Shield } from "lucide-react";
 
+
+
+
 export default function VoteSubmitPage({ params }: { params: { id: string } }) {
     const router = useRouter();
     const voteId = params instanceof Promise
