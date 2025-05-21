@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { CheckCircle2, Copy, ExternalLink, FileDigit, Home, Link2 } from "lucide
 const SUI_VIEW_TX_URL = `https://suiscan.xyz/testnet/tx`;      // Sui交易查看URL
 const SUI_VIEW_OBJECT_URL = `https://suiscan.xyz/testnet/object`; // Sui对象查看URL
 
-export default function VoteCreateSuccessPage() {
+function VoteCreateSuccessContent() {
     const [copied, setCopied] = useState(false);
     const [voteData, setVoteData] = useState<VoteCreateSuccessType | null>(null);
     const searchParams = useSearchParams();
@@ -30,13 +30,11 @@ export default function VoteCreateSuccessPage() {
         }
     }, [searchParams]);
 
-
     // 添加默认值避免null错误
     const displayData = voteData || {
         voteId: "0x123456789abcdef",
         digest: "0x123456789abcdef"
     };
-
 
     const voteUrl = `${SUI_VIEW_OBJECT_URL}/${displayData.voteId}`;
     const digestUrl = `${SUI_VIEW_TX_URL}/${displayData.digest}`;
@@ -46,8 +44,6 @@ export default function VoteCreateSuccessPage() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     };
-
-
 
     return (
         <div className="min-h-screen bg-black text-white">
@@ -144,5 +140,13 @@ export default function VoteCreateSuccessPage() {
                 </div>
             </div>
         </div>
+    );
+}
+
+export default function VoteCreateSuccessPage() {
+    return (
+        <Suspense fallback={<div className="min-h-screen bg-black text-white flex items-center justify-center">加载中...</div>}>
+            <VoteCreateSuccessContent />
+        </Suspense>
     );
 } 
