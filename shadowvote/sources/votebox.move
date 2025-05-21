@@ -1,4 +1,5 @@
 module shadowvote::votebox;
+use std::address;
 use shadowvote::utils::is_prefix;
 use sui::clock::{Self,Clock};
 
@@ -77,5 +78,4 @@ fun approve_internal(id: vector<u8>, caller : address,votebox : &EncryptedVoteBo
 
 public(package) fun namespace(votebox : &EncryptedVoteBox): vector<u8> {
     votebox.id.to_bytes()
-
 }
