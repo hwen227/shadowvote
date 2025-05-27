@@ -12,7 +12,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { useCurrentAccount, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
 import * as sealUtils from "@/contracts/seal";
 import { suiClient } from "@/contracts";
-import { createVotePoolTx, createVotePoolTx_woal } from "@/contracts/transaction";
+import { createVotePoolTx, createVotePoolTx_nft, createVotePoolTx_woal } from "@/contracts/transaction";
 import { AllowlistManager } from "@/components/vote/allowlist-manager";
 import { findObjectTypeName } from "@/contracts/query";
 import { Transaction } from "@mysten/sui/transactions";
@@ -26,6 +26,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 
 import { format } from "date-fns";
+import { NftManager } from "./nft-manager";
+import { isValidSuiAddress } from '@mysten/sui/utils';
+import { queryNftType } from '@/contracts/query';
 // 表单步骤类型
 type FormStep = "basic" | "options" | "timing" | "permissions" | "confirmation";
 
@@ -66,13 +69,23 @@ interface VoteFormData {
         minute: string;
         period: 'AM' | 'PM';
     };
-    permissionType: "all" | "specific";
+    permissionType: "all" | "specific" | "nft";
     selectedAllowlistId: string;
     selectedAllowlistInfo: {
         name: string;
         addressCount: number;
     } | null;
+    selectedNftId: string;
+    selectedNftType: string;
     attachments: File[];
+    // Add NFT verification states
+    nftVerification: {
+        nftObjectId: string;
+        verifiedNftType: string | null;
+        isVerified: boolean;
+        isLoading: boolean;
+        error: string | null;
+    };
 }
 
 export function VoteForm() {
@@ -103,7 +116,17 @@ export function VoteForm() {
         permissionType: "all",
         selectedAllowlistId: "",
         selectedAllowlistInfo: null,
-        attachments: []
+        selectedNftId: "",
+        selectedNftType: "",
+        attachments: [],
+        // Initialize NFT verification states
+        nftVerification: {
+            nftObjectId: "",
+            verifiedNftType: null,
+            isVerified: false,
+            isLoading: false,
+            error: null
+        }
     });
     const [isProcessing, setIsProcessing] = useState(false);
     const [processingStatus, setProcessingStatus] = useState("");
@@ -140,7 +163,17 @@ export function VoteForm() {
             permissionType: "all",
             selectedAllowlistId: "",
             selectedAllowlistInfo: null,
-            attachments: []
+            selectedNftId: "",
+            selectedNftType: "",
+            attachments: [],
+            // Initialize NFT verification states
+            nftVerification: {
+                nftObjectId: "",
+                verifiedNftType: null,
+                isVerified: false,
+                isLoading: false,
+                error: null
+            }
         });
         // 重置到第一步
         setCurrentStep("basic");
@@ -258,6 +291,7 @@ export function VoteForm() {
         const start = startTimeStr ? Math.floor(new Date(startTimeStr).getTime()) : 0;
         const end = endTimeStr ? Math.floor(new Date(endTimeStr).getTime()) : 0;
 
+
         const options: VoteOption[] = formData.options.map((option) => ({
             id: option.id,
             text: option.text
@@ -272,6 +306,8 @@ export function VoteForm() {
         const suiVotePool: SuiInputVotePool = {
             title: formData.title,
             allowlist_Id: formData.permissionType === "specific" ? formData.selectedAllowlistId : "",
+            nft_id: formData.permissionType === "nft" ? formData.selectedNftId : "",
+            nft_type: formData.permissionType === "nft" ? formData.selectedNftType : "",
             start,
             end,
             details: ""
@@ -291,6 +327,26 @@ export function VoteForm() {
 
             const allowlistId = formData.permissionType === "specific" ? formData.selectedAllowlistId : "";
             const encryptedBytes = await sealUtils.encryptVotePool(EncryptInput, allowlistId);
+
+            return encryptedBytes;
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
+    const encryptVotePool_NFT = async (EncryptInput: EncryptedInputVotePool) => {
+
+        if (formData.permissionType !== "nft" && !formData.selectedNftId) {
+            throw new Error("NFT ID cannot be empty");
+        }
+
+        try {
+            setProcessingStatus("Encrypting vote pool...");
+
+            const nft_package_id = formData.selectedNftType.split('::')[0];
+            console.log('nft_package_id', nft_package_id);
+            const encryptedBytes = await sealUtils.encryptVotePool_NFT(EncryptInput, nft_package_id);
 
             return encryptedBytes;
         } catch (error) {
@@ -337,6 +393,9 @@ export function VoteForm() {
         if (formData.permissionType === "specific" && !formData.selectedAllowlistId) {
             return { isValid: false, error: "Please select a white list" };
         }
+        if (formData.permissionType === "nft" && !formData.selectedNftId) {
+            return { isValid: false, error: "Please select a NFT" };
+        }
 
         return { isValid: true, error: "" };
     };
@@ -369,7 +428,16 @@ export function VoteForm() {
                 const encryptedBytes = await encryptVotePool(encryptInput);
                 suiVotePool.details = encryptedBytes;
                 tx = createVotePoolTx(suiVotePool);
-            } else {
+            } else if (formData.permissionType === "nft" && formData.selectedNftId) {
+                const { suiVotePool, encryptInput } = transformFormData();
+                if (attchFiles.length > 0) {
+                    encryptInput.attch_file_blobs = attchFiles;
+                }
+                const encryptedBytes = await encryptVotePool_NFT(encryptInput);
+                suiVotePool.details = encryptedBytes;
+                tx = createVotePoolTx_nft(suiVotePool);
+            }
+            else {
                 const { suiVotePool, encryptInput } = transformFormData();
                 if (attchFiles.length > 0) {
                     encryptInput.attch_file_blobs = attchFiles;
@@ -399,7 +467,7 @@ export function VoteForm() {
                                 // 检查对象类型并分配ID
                                 const objectType = await findObjectTypeName(item.reference.objectId);
                                 if (objectType) {
-                                    if (objectType.includes('::shadowvote::VotePool') || objectType.includes('::votepool_wo_al::VotePool_WOAl'))
+                                    if (objectType.includes('::shadowvote::VotePool') || objectType.includes('::votepool_wo_al::VotePool_WOAl') || objectType.includes('::nft_voting::VotePool'))
                                         voteId = item.reference.objectId;
                                 }
                             }
@@ -409,7 +477,7 @@ export function VoteForm() {
                     setIsProcessing(false);
                     setProcessingStatus("");
 
-                    console.log('创建的对象ID:', createdObjects);
+                    console.log('Object ID:', createdObjects);
 
                     // 跳转到成功页面并传递数据
                     if (voteId) {
@@ -422,15 +490,15 @@ export function VoteForm() {
                     }
                 },
                 onError: (error) => {
-                    console.error('交易失败:', error);
-                    alert('交易失败: ' + error.message);
+                    console.error('Transaction failed:', error);
+                    alert('Transaction failed: ' + error.message);
                     setIsProcessing(false);
                     setProcessingStatus("");
                 },
             });
         } catch (error) {
-            console.error('创建投票失败:', error);
-            alert('创建投票失败: ' + (error as Error).message);
+            console.error('Create vote failed:', error);
+            alert('Create vote failed: ' + (error as Error).message);
             setIsProcessing(false);
             setProcessingStatus("");
         }
@@ -466,7 +534,109 @@ export function VoteForm() {
         return date.toISOString();
     };
 
+    // Add NFT verification handlers
+    const handleNftIdChange = (id: string) => {
+        setFormData(prev => ({
+            ...prev,
+            nftVerification: {
+                ...prev.nftVerification,
+                nftObjectId: id,
+                error: null
+            }
+        }));
+    };
 
+    const handleNftVerify = async () => {
+        const nftId = formData.nftVerification.nftObjectId;
+
+        if (!nftId.trim()) {
+            setFormData(prev => ({
+                ...prev,
+                nftVerification: {
+                    ...prev.nftVerification,
+                    error: 'Please enter the NFT Object ID'
+                }
+            }));
+            return;
+        }
+
+        if (!isValidSuiAddress(nftId)) {
+            setFormData(prev => ({
+                ...prev,
+                nftVerification: {
+                    ...prev.nftVerification,
+                    error: 'Invalid Sui address format'
+                }
+            }));
+            return;
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            nftVerification: {
+                ...prev.nftVerification,
+                isLoading: true,
+                error: null
+            }
+        }));
+
+        try {
+            const nftType = await queryNftType(nftId, currentAccount?.address || '');
+
+            setFormData(prev => ({
+                ...prev,
+                selectedNftId: nftId,
+                selectedNftType: nftType,
+                nftVerification: {
+                    ...prev.nftVerification,
+                    verifiedNftType: nftType,
+                    isVerified: true,
+                    isLoading: false
+                }
+            }));
+
+            alert('NFT verification successful');
+        } catch (err) {
+            console.error('NFT verification error:', err);
+            setFormData(prev => ({
+                ...prev,
+                nftVerification: {
+                    ...prev.nftVerification,
+                    error: err instanceof Error ? err.message : 'Error verifying NFT',
+                    isLoading: false
+                }
+            }));
+            alert('NFT verification failed');
+        }
+    };
+
+    const handleNftReset = () => {
+        setFormData(prev => ({
+            ...prev,
+            selectedNftId: '',
+            selectedNftType: '',
+            nftVerification: {
+                nftObjectId: '',
+                verifiedNftType: null,
+                isVerified: false,
+                isLoading: false,
+                error: null
+            }
+        }));
+    };
+
+    if (!currentAccount) {
+        return (
+            <div className="min-h-screen bg-black text-white">
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-purple-900/20 via-black to-black z-0 overflow-hidden">
+                    <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiM4YjVjZjYiIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9wYXR0ZXJuPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9InVybCgjZ3JpZCkiIG9wYWNpdHk9IjAuMSIvPjwvc3ZnPg==')]"></div>
+                </div>
+                <div className="container mx-auto p-4 text-center relative z-10">
+                    <p className="text-gray-300 mt-16 text-2xl font-semibold">Please Connect Your Wallet</p>
+                </div>
+            </div>
+        );
+    }
 
 
     return (
@@ -824,7 +994,7 @@ export function VoteForm() {
                                 className="space-y-3"
                                 value={formData.permissionType}
                                 onValueChange={(value) =>
-                                    setFormData({ ...formData, permissionType: value as "all" | "specific" })
+                                    setFormData({ ...formData, permissionType: value as "all" | "specific" | "nft" })
                                 }
                             >
                                 <div className="flex items-center space-x-2">
@@ -839,6 +1009,12 @@ export function VoteForm() {
                                         Specified addresses can participate
                                     </label>
                                 </div>
+                                <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="nft" id="nft" className="border-purple-500 text-purple-500" />
+                                    <label htmlFor="nft" className="text-sm font-medium leading-none text-gray-300">
+                                        Specified NFT holders can participate
+                                    </label>
+                                </div>
                             </RadioGroup>
                         </div>
 
@@ -847,6 +1023,18 @@ export function VoteForm() {
                                 selectedAllowlistId={formData.selectedAllowlistId}
                                 onAllowlistSelect={updateSelectedAllowlistId}
                                 onAllowlistInfoChange={updateSelectedAllowlistInfo}
+                            />
+                        )}
+                        {formData.permissionType === "nft" && (
+                            <NftManager
+                                nftObjectId={formData.nftVerification.nftObjectId}
+                                verifiedNftType={formData.nftVerification.verifiedNftType}
+                                isVerified={formData.nftVerification.isVerified}
+                                isLoading={formData.nftVerification.isLoading}
+                                error={formData.nftVerification.error}
+                                onNftIdChange={handleNftIdChange}
+                                onVerify={handleNftVerify}
+                                onReset={handleNftReset}
                             />
                         )}
 
@@ -911,7 +1099,12 @@ export function VoteForm() {
                                         Participation Rights:
                                     </h3>
                                     <p className="text-gray-400 ml-6">
-                                        {formData.permissionType === "all" ? "Everyone can participate" : `Specified addresses can participate - (${formData.selectedAllowlistInfo?.addressCount} addresses from whitelist ${formData.selectedAllowlistInfo?.name} )`}
+                                        {formData.permissionType === "all"
+                                            ? "Everyone can participate"
+                                            : formData.permissionType === "specific"
+                                                ? `Specified addresses can participate - (${formData.selectedAllowlistInfo?.addressCount} addresses from whitelist ${formData.selectedAllowlistInfo?.name})`
+                                                : `Specified NFT holders can participate`
+                                        }
                                     </p>
                                 </div>
 

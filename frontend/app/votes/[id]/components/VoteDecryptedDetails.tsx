@@ -1,51 +1,36 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Button } from "@/components/ui/button";
 import { SessionKey } from "@mysten/seal";
-import { fromHex } from "@mysten/sui/utils";
-import { Transaction } from "@mysten/sui/transactions";
 import { SuiResponseVotePool, EncryptedInputVotePool } from "@/types";
-import { useUploadBlob } from "@/hooks/useUploadBlob";
 import { decryptVotePool, MoveCallConstructor } from "@/contracts/seal";
-import { networkConfig } from "@/contracts";
-import { formatAddress } from "@/lib/utils";
+import { useUploadBlob } from "@/hooks/useUploadBlob";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { FilePreview } from "@/components/vote/file-preview";
+import { Button } from "@/components/ui/button";
+import { formatAddress } from "@/lib/utils";
 import { Calendar, LinkIcon, User, Users } from "lucide-react";
 
-interface VoteDecryptedDetailsProps {
+type VoteDecryptedDetailsProps = {
     votePoolObjectData: SuiResponseVotePool | null;
     voteId: string;
     sessionKey: SessionKey | null;
     decryptedVotePoolData: EncryptedInputVotePool | null;
-    onDecryptSuccess: (decryptedData: EncryptedInputVotePool) => void;
-}
+    onDecryptSuccess: (data: EncryptedInputVotePool) => void;
+    customMoveCallConstructor: MoveCallConstructor;
+};
 
 export default function VoteDecryptedDetails({
     votePoolObjectData,
     voteId,
     sessionKey,
     decryptedVotePoolData,
-    onDecryptSuccess
+    onDecryptSuccess,
+    customMoveCallConstructor
 }: VoteDecryptedDetailsProps) {
     const { downloadBlob } = useUploadBlob();
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
-    // 添加一个ref来跟踪是否正在解密，防止多次执行
     const isDecrypting = useRef(false);
 
-    const constructMoveCall = (allowlistId: string): MoveCallConstructor => {
-        return (tx: Transaction, id: string) => {
-            tx.moveCall({
-                target: `${networkConfig.testnet.variables.packageID}::allowlist::seal_approve`,
-                arguments: [
-                    tx.pure.vector('u8', fromHex(id)),
-                    tx.object(allowlistId),
-                ]
-            });
-        };
-    };
-
     const handleDecryptVoteData = useCallback(async () => {
-        // 防止重复执行
         if (isDecrypting.current) {
             console.log("已有解密任务在执行中，跳过");
             return;
@@ -64,12 +49,13 @@ export default function VoteDecryptedDetails({
 
         console.log("正在执行中");
         try {
-            if (!votePoolObjectData.allowlist_id) {
-                throw new Error("无效的allowlist_id");
+            if (!votePoolObjectData.allowlist_id && !votePoolObjectData.nft_token) {
+                throw new Error("无效的投票权限配置");
             }
-            const moveCall = constructMoveCall(votePoolObjectData.allowlist_id);
+
             const downloadBytes = await votePoolObjectData.details as Uint8Array;
-            const decryptedData = await decryptVotePool(sessionKey, downloadBytes, moveCall);
+
+            const decryptedData = await decryptVotePool(sessionKey, downloadBytes, customMoveCallConstructor);
 
             if (!decryptedData) {
                 throw new Error("解密数据为空，您可能没有权限查看此投票");
@@ -84,9 +70,8 @@ export default function VoteDecryptedDetails({
         } finally {
             isDecrypting.current = false;
         }
-    }, [downloadBlob, onDecryptSuccess, sessionKey, voteId, votePoolObjectData]);
+    }, [downloadBlob, onDecryptSuccess, sessionKey, voteId, votePoolObjectData, customMoveCallConstructor]);
 
-    // 组件加载或依赖项变化时自动执行解密，使用更精确的条件防止重复执行
     useEffect(() => {
         if (
             sessionKey &&
@@ -101,7 +86,6 @@ export default function VoteDecryptedDetails({
             setIsLoading(false);
         }
     }, [sessionKey, votePoolObjectData, decryptedVotePoolData, handleDecryptVoteData, hasError]);
-
 
     if (isLoading && !decryptedVotePoolData) {
         return (
@@ -128,7 +112,6 @@ export default function VoteDecryptedDetails({
         );
     }
 
-
     if (!decryptedVotePoolData) {
         return (
             <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg mb-8">
@@ -137,7 +120,6 @@ export default function VoteDecryptedDetails({
         );
     }
 
-    // 已解密，显示详细信息
     return (
         <>
             <div className="border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg p-6 mb-6">
@@ -156,7 +138,6 @@ export default function VoteDecryptedDetails({
                         <span className="font-mono">{votePoolObjectData?.participantsCount || 0}</span>
                     </div>
 
-
                     <div className="flex items-center text-gray-400">
                         <Calendar className="w-4 h-4 mr-2 text-purple-400" />
                         <span className="mr-1">Start Time:</span>
@@ -173,14 +154,12 @@ export default function VoteDecryptedDetails({
                         <span className="mr-1">Object ID:</span>
                         <span className="font-mono">{voteId}</span>
                     </div>
-
                 </div>
             </div>
 
             {decryptedVotePoolData.attch_file_blobs && decryptedVotePoolData.attch_file_blobs.length > 0 && (
                 <FilePreview files={decryptedVotePoolData.attch_file_blobs} />
             )}
-
         </>
     );
 } 

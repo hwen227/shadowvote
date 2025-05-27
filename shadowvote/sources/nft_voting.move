@@ -1,21 +1,28 @@
 module shadowvote::nft_voting;
 use std::string::String;
 use std::type_name::{Self, TypeName};
+use std::bcs;
+use sui::event;
 use shadowvote::shadowvote::{Self,State};
-use shadowvote::votebox::{Self,EncryptedVoteBox,EncryptedVote};
+use shadowvote::votebox::{Self,EncryptedVoteBox};
 use sui::clock::{Self,Clock};
 use shadowvote::utils::is_prefix;
 
 public struct VotePool has key{
     id: UID,
     details : vector<u8>,
-    ntf_token: TypeName,
+    nft_token: TypeName,
     title: String,
     creator : address,
     start: u64,
     end: u64,
     votebox_id : ID,
     participantsCount :u64,
+}
+
+#[test_only]
+public struct TestNFT has key,store{
+    id : UID
 }
 
 public struct VotePoolCreated has copy,drop{
@@ -27,6 +34,21 @@ const EInvalidVote: u64 = 2;
 const EVoteNotStart: u64 = 3;
 const EAlreadyFinalized: u64 = 4;
 const EDuplicateVote:u64 =5 ;
+
+
+#[test_only]
+public fun test_create_nft(ctx: &mut TxContext){
+    let nft = TestNFT{
+        id : object::new(ctx)
+    };
+
+    transfer::public_transfer(nft,ctx.sender());
+}
+
+#[test_only]
+public fun get_id(nft: &TestNFT): &UID{
+    &nft.id
+}
 
 public fun create_vote_pool_entry<T:key+store>(
     state : &mut State,
@@ -79,7 +101,7 @@ public fun create_vote_pool<T:key+store>(
     let votepool = VotePool {
         id: object::new(ctx),
         details,
-        ntf_token : type_name::get<T>(),
+        nft_token : type_name::get<T>(),
         title,
         creator,
         start,
@@ -95,7 +117,6 @@ public fun cast_vote(
     vote_pool: &mut VotePool,
     votebox : &mut EncryptedVoteBox,
     vote: vector<u8>,
-    is_anon : bool,
     clock : &Clock,
     ctx: &TxContext,
 ){
@@ -106,27 +127,25 @@ public fun cast_vote(
     assert!(vote_pool.votebox_id==object::id(votebox),EInvalidVote);
     assert!(!votebox::has_voted(votebox,voter),EDuplicateVote);
 
-    let encrypt_vote : EncryptedVote;
-    if(is_anon) {encrypt_vote = votebox::create_encrypted_vote(@0x123,vote);}
-    else encrypt_vote = votebox::create_encrypted_vote(voter,vote);
+    let encrypt_vote = votebox::create_encrypted_vote(voter,vote);
 
     votebox::add_vote(votebox,encrypt_vote);
     let count = vote_pool.participantsCount;
     vote_pool.participantsCount = count+ 1;
 }
 
-entry fun seal_approve<T : key+store>(id: vector<u8>,nft_token: &T,votepool : &VotePool,clock :&Clock){
-    assert!(approve_internal(id,nft_token,votepool.end,clock));
+entry fun seal_approve<T : key+store>(id: vector<u8>,nft_token: &T,votepool : &VotePool){
+    assert!(approve_internal(id,nft_token,votepool));
 }
 
-fun approve_internal<T : key+store>(id: vector<u8>,nft_token: &T,end: u64,clock : &Clock): bool {
+fun approve_internal<T : key+store>(id: vector<u8>,_nft_token: &T,votepool : &VotePool): bool {
 
     let nft_typename = type_name::get<T>();
-    let namespace = nft_typename.get_address();
+    let namespace = bcs::to_bytes(&nft_typename.get_address());
     if (!is_prefix(namespace, id)) {
         return false
     };
-    if(clock::timestamp_ms(clock)>= end){
+    if(nft_typename == votepool.nft_token){
         return true
     };
     false

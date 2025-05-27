@@ -1,6 +1,8 @@
 [package]
 name = "shadowvote"
 edition = "2024.beta" # edition = "legacy" to use legacy (pre-2024) Move
+version = "0.0.1"
+published-at = "0xedd484b747fb713abe44a61e93880d6d942cda68aab6c0d3491dcf3214943018"
 # license = ""           # e.g., "MIT", "GPL", "Apache 2.0"
 # authors = ["..."]      # e.g., ["Joe Smith (joesmith@noemail.com)", "John Snow (johnsnow@noemail.com)"]
 

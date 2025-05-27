@@ -1,9 +1,10 @@
 import VoteDetailClient from "./components/VoteDetailClient";
 
-export default function VoteDetailPage({
+export default async function VoteDetailPage({
     params,
 }: {
-    params: { id: string };
+    params: { id: string } | Promise<{ id: string }>;
 }) {
-    return <VoteDetailClient voteId={params.id} />;
+    const resolvedParams = await params;
+    return <VoteDetailClient voteId={resolvedParams.id} />;
 } 

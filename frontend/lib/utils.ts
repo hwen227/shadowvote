@@ -29,11 +29,11 @@ export function getRemainingTime(endDate: number): string {
   const now = new Date();
   const nowTime = now.getTime();
 
-  if (nowTime >= endDate) return "已结束";
+  if (nowTime >= endDate) return "ended";
 
   const diffMs = endDate - nowTime;
   const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   const diffHours = Math.floor((diffMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
 
-  return `剩余 ${diffDays} 天 ${diffHours} 小时`;
+  return `${diffDays} days ${diffHours} hours`;
 }

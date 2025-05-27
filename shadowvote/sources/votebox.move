@@ -1,5 +1,5 @@
 module shadowvote::votebox;
-use std::address;
+
 use shadowvote::utils::is_prefix;
 use sui::clock::{Self,Clock};
 

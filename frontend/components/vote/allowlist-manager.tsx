@@ -274,7 +274,7 @@ export function AllowlistManager({
                 transaction: createTx.serialize(),
             }, {
                 onSuccess: async (result) => {
-                    console.log('创建白名单成功:', result);
+                    console.log('Whitelist created:', result);
 
                     try {
                         const allowlistObject = result.effects?.created?.find(

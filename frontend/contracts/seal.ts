@@ -36,6 +36,27 @@ export const encryptVotePool = async (votePool: EncryptedInputVotePool, allowlis
     return encryptedBytes;
 }
 
+export const encryptVotePool_NFT = async (votePoolData: EncryptedInputVotePool, nft_package_id: string): Promise<Uint8Array> => {
+
+    const nonce = crypto.getRandomValues(new Uint8Array(5));
+    const policyObjectBytes = new TextEncoder().encode(nft_package_id.replace(/^0x/, ''));
+    const length_prefix = new Uint8Array([policyObjectBytes.length]);
+    const id = toHex(new Uint8Array([...length_prefix, ...policyObjectBytes, ...nonce]));
+
+
+    const encoder = new TextEncoder();
+    const serializedData = encoder.encode(JSON.stringify(votePoolData));
+
+    const { encryptedObject: encryptedBytes } = await sealClient.encrypt({
+        threshold: 2,
+        id,
+        packageId: networkConfig.testnet.variables.packageID,
+        data: serializedData,
+    });
+
+    return encryptedBytes;
+}
+
 export const encryptUserVote = async (option: string, voteboxID: string): Promise<Uint8Array> => {
     const nonce = crypto.getRandomValues(new Uint8Array(5));
     const policyObjectBytes = fromHex(voteboxID);
@@ -58,7 +79,9 @@ export const decryptVotePool = async (sessionKey: SessionKey, encryptedData: Uin
 
     const fullId = EncryptedObject.parse(new Uint8Array(encryptedData)).id;
 
+    console.log("fullID", fullId);
     const tx = new Transaction();
+
     moveCallConstructor(tx, fullId);
 
     const txBytes = await tx.build({ client: suiClient, onlyTransactionKind: true });
