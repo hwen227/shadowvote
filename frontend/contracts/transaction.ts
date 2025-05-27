@@ -49,6 +49,31 @@ export const createVotePoolTx_woal = (votepool: SuiInputVotePool): Transaction =
     return tx;
 }
 
+export const createVotePoolTx_nft = (votepool: SuiInputVotePool): Transaction => {
+
+    if (!(votepool.details instanceof Uint8Array) || !votepool.nft_id || !votepool.nft_type) {
+        throw new Error("Invalid vote pool data");
+    }
+    const tx = new Transaction();
+
+    tx.moveCall({
+        package: networkConfig.testnet.variables.packageID,
+        module: "nft_voting",
+        function: "create_vote_pool_entry",
+        typeArguments: [votepool.nft_type],
+        arguments: [
+            tx.object(networkConfig.testnet.variables.stateID),
+            tx.pure.vector('u8', votepool.details),
+            tx.object(votepool.nft_id),
+            tx.pure.string(votepool.title),
+            tx.pure.u64(votepool.start),
+            tx.pure.u64(votepool.end),
+        ]
+    })
+
+    return tx;
+}
+
 export const createAllowlisTx = async (name: string) => {
     const tx = new Transaction();
 
@@ -127,7 +152,6 @@ export const castVoteTx = async (votePoolId: string, votebox: string, vote: Uint
             tx.object(votePoolId),
             tx.object(votebox),
             tx.pure.vector('u8', vote),
-            tx.pure.bool(is_anonymous),
             tx.object("0x6"),
         ]
     })
@@ -144,7 +168,22 @@ export const castVoteTx_woal = async (votePoolId: string, votebox: string, vote:
             tx.object(votePoolId),
             tx.object(votebox),
             tx.pure.vector('u8', vote),
-            tx.pure.bool(is_anonymous),
+            tx.object("0x6"),
+        ]
+    })
+
+    return tx;
+}
+
+export const castVoteTx_with_nft = async (votePoolId: string, votebox: string, vote: Uint8Array) => {
+    const tx = new Transaction();
+
+    tx.moveCall({
+        target: `${networkConfig.testnet.variables.packageID}::nft_voting::cast_vote`,
+        arguments: [
+            tx.object(votePoolId),
+            tx.object(votebox),
+            tx.pure.vector('u8', vote),
             tx.object("0x6"),
         ]
     })

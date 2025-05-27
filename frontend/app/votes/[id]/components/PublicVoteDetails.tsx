@@ -24,7 +24,7 @@ export default function PublicVoteDetails({
                 setvotePoolData(parsedDetails);
                 setIsLoading(false);
             } catch (error) {
-                console.error('解析投票详情失败:', error);
+                console.error('loading vote details error:', error);
                 setIsLoading(false);
             }
         }
@@ -36,7 +36,7 @@ export default function PublicVoteDetails({
                 <div className="mb-4">
                     <div className="w-8 h-8 border-4 border-t-blue-500 border-b-blue-200 border-l-blue-200 border-r-blue-200 rounded-full animate-spin"></div>
                 </div>
-                <p className="text-gray-600">正在加载投票数据...</p>
+                <p className="text-gray-600">Loading vote details...</p>
             </div>
         );
     }
@@ -44,7 +44,7 @@ export default function PublicVoteDetails({
     if (!votePoolData) {
         return (
             <div className="flex flex-col items-center justify-center py-8 border border-dashed rounded-lg mb-8">
-                <p className="text-gray-600 mb-4">无法加载投票数据</p>
+                <p className="text-gray-600 mb-4">Failed to load vote details</p>
             </div>
         );
     }

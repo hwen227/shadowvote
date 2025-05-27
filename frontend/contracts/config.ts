@@ -6,8 +6,8 @@ type NetworkType = 'testnet' | 'mainnet';
 
 const configs = {
     testnet: {
-        packageID: "0xbdccbd705d5847db445395182466e9732d15320f3af7a1364084a9c7f6e53fb3",
-        stateID: "0xe37e96a68050f5edac656bcda6504ec4cb3ddcd8f7a9606f5822eee37d0b377b"
+        packageID: "0xcd6d49b4017f2835b015078b8ad4704dd0c4b5199fa54807e4a6f1513db7412a",
+        stateID: "0x3fff7de4fa016fce7e434a870d9f825cc896aecfcdba4a031a304d82b7376c48"
     },
     mainnet: {
         Package: "0x1111111111111111111111111111111111111111", //TODO

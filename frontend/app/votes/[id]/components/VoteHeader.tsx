@@ -11,7 +11,7 @@ interface VoteHeaderProps {
     title?: string;
 }
 
-export default function VoteHeader({ votePoolObjectData, title = "投票详情" }: VoteHeaderProps) {
+export default function VoteHeader({ votePoolObjectData, title = "Voteing Pools" }: VoteHeaderProps) {
     const getVoteStatus = () => {
         if (!votePoolObjectData) return VoteStatus.UPCOMING;
 

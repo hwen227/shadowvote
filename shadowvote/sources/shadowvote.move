@@ -3,18 +3,30 @@ module shadowvote::shadowvote;
 use std::string::{String};
 use std::vector;
 use shadowvote::allowlist::{Allowlist};
-use shadowvote::votebox::{Self,EncryptedVoteBox,EncryptedVote};
+use shadowvote::votebox::{Self,EncryptedVoteBox};
 
 use sui::clock::{Self,Clock};
 use sui::event;
 use sui::table;
 use sui::table::Table;
 
-
+const VERSION: u64 = 2;
 const EInvalidVote: u64 = 2;
 const EVoteNotStart: u64 = 3;
 const EAlreadyFinalized: u64 = 4;
 const EDuplicateVote:u64 =5 ;
+const ENotAdmin: u64 = 0;
+const EWrongVersion: u64 = 1;
+
+public struct AdminCap has key {
+    id: UID,
+}
+public struct ShadowVote has key{
+    id: UID,
+    version: u64,
+    admin: ID,
+    value: u64,
+}
 
 public struct State has key{
     id: UID,
@@ -55,6 +67,19 @@ fun init(ctx: &mut TxContext){
         id : object::new(ctx),
         state_id
     };
+
+    let admin = AdminCap {
+        id: object::new(ctx),
+    };
+
+    transfer::share_object(ShadowVote {
+        id: object::new(ctx),
+        version: VERSION,
+        admin: object::id(&admin),
+        value: 0,
+    });
+
+    transfer::transfer(admin, tx_context::sender(ctx));
 
     transfer::share_object(state);
     transfer::transfer(cap,tx_context::sender(ctx));
@@ -130,7 +155,6 @@ public fun cast_vote(
     vote_pool: &mut VotePool,
     votebox : &mut EncryptedVoteBox,
     vote: vector<u8>,
-    is_anon : bool,
     clock : &Clock,
     ctx: &TxContext,
 ){
@@ -141,9 +165,7 @@ public fun cast_vote(
     assert!(vote_pool.votebox_id==object::id(votebox),EInvalidVote);
     assert!(!votebox::has_voted(votebox,voter),EDuplicateVote);
 
-    let encrypt_vote : EncryptedVote;
-    if(is_anon) {encrypt_vote = votebox::create_encrypted_vote(@0x123,vote);}
-    else encrypt_vote = votebox::create_encrypted_vote(voter,vote);
+    let encrypt_vote = votebox::create_encrypted_vote(voter,vote);
 
     votebox::add_vote(votebox,encrypt_vote);
     let count = vote_pool.participantsCount;
@@ -153,6 +175,12 @@ public fun cast_vote(
 //==============================================================================================
 // Helper Functions
 //==============================================================================================
+
+entry fun migrate(c: &mut ShadowVote, a: &AdminCap) {
+    assert!(c.admin == object::id(a), ENotAdmin);
+    assert!(c.version < VERSION);
+    c.version = VERSION;
+}
 
 
 public(package) fun get_vote_creator(vote_pool: &VotePool):address{

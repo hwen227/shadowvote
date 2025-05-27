@@ -16,7 +16,7 @@ import { useCurrentAccount } from "@mysten/dapp-kit";
 
 // 创建简易toast通知组件
 const showToast = (type: 'error' | 'success', message: string) => {
-    alert(`${type === 'error' ? '错误' : '成功'}: ${message}`);
+    alert(`${type === 'error' ? 'error' : 'success'}: ${message}`);
     console[type === 'error' ? 'error' : 'log'](message);
 };
 
@@ -52,7 +52,7 @@ export default function VoteCast({
 
     const handleSubmitVote = async () => {
         if (!selectedOption) {
-            showToast('error', '请选择一个选项');
+            showToast('error', 'Please select an option');
             return;
         }
 

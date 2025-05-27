@@ -42,7 +42,13 @@ export const getVotePoolState = async (): Promise<VotePoolCreatedEvent[]> => {
     }
   });
 
-  const rawVotepools = [...events.data, ...events_woal.data];
+  const events_nft = await suiClient.queryEvents({
+    query: {
+      MoveEventType: `${networkConfig.testnet.variables.packageID}::nft_voting::VotePoolCreated`,
+    }
+  });
+
+  const rawVotepools = [...events.data, ...events_woal.data, ...events_nft.data];
 
 
   const votePoolState = rawVotepools.map((event) => {
@@ -191,7 +197,35 @@ export const getOwnedVotePool = async (address: string): Promise<SuiResponseVote
 
 }
 
-export const getVotePoolById = async (voetId: string): Promise<[SuiResponseVotePool, boolean]> => {
+export const queryNftType = async (address: string, owner: string) => {
+  if (!isValidSuiAddress(address)) {
+    throw new Error("Invalid Sui address");
+  }
+
+  const res = await suiClient.getObject({
+    id: address,
+    options: {
+      showContent: true,
+      showOwner: true,
+    }
+  })
+
+  const parsedNft = res.data?.content as SuiParsedData;
+  if (!('fields' in parsedNft) || !parsedNft) {
+    throw new Error("Invalid NFT data structure");
+  }
+  const ownerData = res.data?.owner as { AddressOwner: string };
+  if (ownerData.AddressOwner !== owner) {
+    throw new Error("Invalid NFT owner");
+  }
+
+  return parsedNft.type;
+
+}
+
+
+export type VoteType = 'public' | 'allowlist' | 'nft';
+export const getVotePoolById = async (voetId: string): Promise<[SuiResponseVotePool, VoteType]> => {
   if (!isValidSuiAddress(voetId)) {
     throw new Error("Invalid Sui address");
   }
@@ -209,11 +243,15 @@ export const getVotePoolById = async (voetId: string): Promise<[SuiResponseVoteP
     throw new Error("Invalid vote pool data structure");
   }
 
-  let is_allowlist: boolean = true;
-  if (parsedVotePool.type.includes("::votepool_wo_al::VotePool_WOAl"))
-    is_allowlist = false;
+  let voteType: VoteType = 'allowlist';
+  if (parsedVotePool.type.includes("::shadowvote::VotePool"))
+    voteType = 'allowlist';
+  else if (parsedVotePool.type.includes("::votepool_wo_al::VotePool_WOAl"))
+    voteType = 'public';
+  else if (parsedVotePool.type.includes("::nft_voting::VotePool"))
+    voteType = 'nft';
 
-  return [parsedVotePool.fields as SuiResponseVotePool, is_allowlist];
+  return [parsedVotePool.fields as SuiResponseVotePool, voteType];
 }
 
 export const queryState = async () => {

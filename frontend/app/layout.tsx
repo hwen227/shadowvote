@@ -9,8 +9,8 @@ import { Sparkles } from 'lucide-react';
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: '匿名投票工具 - ShadowVote',
-  description: '基于Sui区块链的安全匿名投票平台',
+  title: 'ShadowVote',
+  description: 'ShadowVote is a platform for creating and participating in encrypted votes.',
 }
 
 export default function RootLayout({

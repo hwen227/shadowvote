@@ -39,6 +39,11 @@ export type SuiResponseVotePool = {
     creator: string,
     details: string | Uint8Array,
     allowlist_id?: string,
+    nft_token?: {
+        fields: {
+            name: string,
+        }
+    },
     votebox_id: string,
     start: number,
     end: number,
@@ -49,6 +54,8 @@ export type SuiInputVotePool = {
     title: string,
     details: string | Uint8Array,
     allowlist_Id?: string,
+    nft_id?: string,
+    nft_type?: string,
     start: number,
     end: number,
 }

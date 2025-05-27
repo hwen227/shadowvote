@@ -41,7 +41,7 @@ const suiClient = new SuiClient({ url: networkConfig[network].url });
 
 const sealClient = new SealClient({
     suiClient,
-    serverObjectIds: getAllowlistedKeyServers("testnet"),
+    serverObjectIds: getAllowlistedKeyServers('testnet').map(id => [id, 1] as [string, number]),
     verifyKeyServers: false
 });
 
