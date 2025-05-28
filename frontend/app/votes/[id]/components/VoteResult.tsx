@@ -63,13 +63,9 @@ export default function VoteResult({ votePool, options, sessionKey, customMoveCa
         isDecrypting.current = true;
 
         try {
-            console.log("开始解密投票结果");
+
             const encryptedVoteBoxData = await queryVoteBox(votePool.votebox_id);
             const results = await decryptVoteResult(sessionKey, encryptedVoteBoxData, customMoveCall);
-
-            console.log("result", results);
-
-            console.log("results", results);
 
             if (!results) {
                 throw new Error('解密结果为空');

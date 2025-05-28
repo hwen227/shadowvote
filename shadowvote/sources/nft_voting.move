@@ -50,7 +50,7 @@ public fun get_id(nft: &TestNFT): &UID{
     &nft.id
 }
 
-public fun create_vote_pool_entry<T:key+store>(
+public fun create_vote_pool_entry<T:key>(
     state : &mut State,
     details: vector<u8>,
     nft: &T,
@@ -86,7 +86,7 @@ public fun create_vote_pool_entry<T:key+store>(
     transfer::share_object(votepool);
 }
 
-public fun create_vote_pool<T:key+store>(
+public fun create_vote_pool<T:key>(
     _ntf: &T,
     title: String,
     details: vector<u8>,
@@ -134,11 +134,11 @@ public fun cast_vote(
     vote_pool.participantsCount = count+ 1;
 }
 
-entry fun seal_approve<T : key+store>(id: vector<u8>,nft_token: &T,votepool : &VotePool){
+entry fun seal_approve<T : key>(id: vector<u8>,nft_token: &T,votepool : &VotePool){
     assert!(approve_internal(id,nft_token,votepool));
 }
 
-fun approve_internal<T : key+store>(id: vector<u8>,_nft_token: &T,votepool : &VotePool): bool {
+fun approve_internal<T : key>(id: vector<u8>,_nft_token: &T,votepool : &VotePool): bool {
 
     let nft_typename = type_name::get<T>();
     let namespace = bcs::to_bytes(&nft_typename.get_address());
