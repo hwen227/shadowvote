@@ -43,6 +43,9 @@ export default function VoteResultPage({ params }: VoteResultPageProps) {
     const fetchVoteData = useCallback(async () => {
         try {
             const [suiVotePoolData, voteTypeValue] = await getVotePoolById(voteId);
+
+            console.log('suiVotePoolData', suiVotePoolData);
+            console.log('voteTypeValue', voteTypeValue);
             if (!suiVotePoolData) {
                 setVoteNotFound(true);
             }
@@ -76,13 +79,13 @@ export default function VoteResultPage({ params }: VoteResultPageProps) {
                         setCurrentSessionKey(sessionKey);
                     },
                     onError: (error) => {
-                        console.error('签名失败:', error);
+                        console.error('sign failed:', error);
 
                     }
                 }
             );
         } catch (error) {
-            console.error('签名失败:', error);
+            console.error('sign failed:', error);
         }
     }, [currentAccount, signPersonalMessage]);
 
@@ -247,60 +250,7 @@ export default function VoteResultPage({ params }: VoteResultPageProps) {
                 {(voteType === 'allowlist' || voteType === 'nft') ? (
                     <>
 
-                        {!isSessionKeyValid && (
-                            <div className="flex flex-col items-center justify-center py-8 border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg mb-8">
-                                {voteType === 'allowlist' && (
-                                    <>
-                                        <p className="text-gray-400 mb-4">This vote requires identity verification, please sign to view vote details</p>
-                                        <Button
-                                            onClick={signSessionKey}
-                                            className="bg-purple-500 hover:bg-purple-600 mb-8">
-                                            Sign
-                                        </Button>
-                                    </>
-                                )}
 
-                                {voteType === 'nft' && (
-                                    <>
-                                        <p className="text-gray-400 mb-6">This vote requires NFT verification, please verify your NFT ownership to participate</p>
-                                        <div className="w-full max-w-2xl px-4">
-                                            <div className="flex items-center gap-2">
-                                                <Input
-                                                    type="text"
-                                                    placeholder="Please input your NFT Object ID (0x...)"
-                                                    value={nftObjectId}
-                                                    onChange={handleNftIdChange}
-                                                    className="flex-1 bg-black/50 border-purple-900/50 text-white focus:ring-purple-500 focus:border-purple-500"
-                                                />
-                                                <Button
-                                                    onClick={handleValidateNft}
-                                                    disabled={isValidating || !nftObjectId || isNftIdValid}
-                                                    className={`min-w-[100px] ${isNftIdValid
-                                                        ? 'bg-green-600 hover:bg-green-700'
-                                                        : 'bg-purple-500 hover:bg-purple-600'
-                                                        }`}
-                                                >
-                                                    {isValidating ? (
-                                                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                                                    ) : isNftIdValid ? (
-                                                        'Verified'
-                                                    ) : (
-                                                        'Verify'
-                                                    )}
-                                                </Button>
-                                            </div>
-
-                                            {validationError && (
-                                                <p className="text-red-500 text-sm mt-2 text-center">{validationError}</p>
-                                            )}
-                                            {isNftIdValid && (
-                                                <p className="text-gray-400 text-sm mt-2 text-center">NFT verified successfully, please sign to view vote details</p>
-                                            )}
-                                        </div>
-                                    </>
-                                )}
-                            </div>
-                        )}
 
                         {isSessionKeyValid && votePoolObjectData && (
                             <VoteDecryptedDetails
@@ -340,6 +290,61 @@ export default function VoteResultPage({ params }: VoteResultPageProps) {
                             />
                         )}
                     </>
+                )}
+
+                {!isSessionKeyValid && (
+                    <div className="flex flex-col items-center justify-center py-8 border border-purple-900/50 bg-black/30 backdrop-blur-sm rounded-lg mb-8">
+                        {!voteType.includes('nft') && (
+                            <>
+                                <p className="text-gray-400 mb-4">This vote requires identity verification, please sign to view vote result</p>
+                                <Button
+                                    onClick={signSessionKey}
+                                    className="bg-purple-500 hover:bg-purple-600 mb-8">
+                                    Sign
+                                </Button>
+                            </>
+                        )}
+
+                        {voteType === 'nft' && (
+                            <>
+                                <p className="text-gray-400 mb-6">This vote requires NFT verification, please verify your NFT ownership to participate</p>
+                                <div className="w-full max-w-2xl px-4">
+                                    <div className="flex items-center gap-2">
+                                        <Input
+                                            type="text"
+                                            placeholder="Please input your NFT Object ID (0x...)"
+                                            value={nftObjectId}
+                                            onChange={handleNftIdChange}
+                                            className="flex-1 bg-black/50 border-purple-900/50 text-white focus:ring-purple-500 focus:border-purple-500"
+                                        />
+                                        <Button
+                                            onClick={handleValidateNft}
+                                            disabled={isValidating || !nftObjectId || isNftIdValid}
+                                            className={`min-w-[100px] ${isNftIdValid
+                                                ? 'bg-green-600 hover:bg-green-700'
+                                                : 'bg-purple-500 hover:bg-purple-600'
+                                                }`}
+                                        >
+                                            {isValidating ? (
+                                                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                                            ) : isNftIdValid ? (
+                                                'Verified'
+                                            ) : (
+                                                'Verify'
+                                            )}
+                                        </Button>
+                                    </div>
+
+                                    {validationError && (
+                                        <p className="text-red-500 text-sm mt-2 text-center">{validationError}</p>
+                                    )}
+                                    {isNftIdValid && (
+                                        <p className="text-gray-400 text-sm mt-2 text-center">NFT verified successfully, please sign to view vote details</p>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
                 )}
             </div>
         </div>

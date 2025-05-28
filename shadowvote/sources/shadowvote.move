@@ -7,26 +7,15 @@ use shadowvote::votebox::{Self,EncryptedVoteBox};
 
 use sui::clock::{Self,Clock};
 use sui::event;
+use sui::object::delete;
 use sui::table;
 use sui::table::Table;
 
-const VERSION: u64 = 2;
 const EInvalidVote: u64 = 2;
 const EVoteNotStart: u64 = 3;
 const EAlreadyFinalized: u64 = 4;
 const EDuplicateVote:u64 =5 ;
-const ENotAdmin: u64 = 0;
-const EWrongVersion: u64 = 1;
 
-public struct AdminCap has key {
-    id: UID,
-}
-public struct ShadowVote has key{
-    id: UID,
-    version: u64,
-    admin: ID,
-    value: u64,
-}
 
 public struct State has key{
     id: UID,
@@ -53,6 +42,10 @@ public struct VotePoolCreated has copy,drop{
     vote_pool: ID
 }
 
+public struct VotePoolDeleted has copy,drop{
+    vote_pool: ID
+}
+
 fun init(ctx: &mut TxContext){
 
     let uid = object::new(ctx);
@@ -68,18 +61,6 @@ fun init(ctx: &mut TxContext){
         state_id
     };
 
-    let admin = AdminCap {
-        id: object::new(ctx),
-    };
-
-    transfer::share_object(ShadowVote {
-        id: object::new(ctx),
-        version: VERSION,
-        admin: object::id(&admin),
-        value: 0,
-    });
-
-    transfer::transfer(admin, tx_context::sender(ctx));
 
     transfer::share_object(state);
     transfer::transfer(cap,tx_context::sender(ctx));
@@ -172,16 +153,31 @@ public fun cast_vote(
     vote_pool.participantsCount = count+ 1;
 }
 
+public fun delete_votepool(cap : &StateCap, state : &State,votepool : VotePool){
+    assert!(cap.state_id == object::id(state));
+
+    let votepoolDeleted = VotePoolDeleted{
+        vote_pool: object::id(&votepool)
+    };
+
+    let VotePool { id, details:_,
+        allowlist_id:_,
+        title:_,
+        creator:_,
+        start:_,
+        end:_,
+        votebox_id:_,
+        participantsCount:_,} = votepool;
+
+
+    delete(id);
+
+    event::emit(votepoolDeleted);
+}
+
 //==============================================================================================
 // Helper Functions
 //==============================================================================================
-
-entry fun migrate(c: &mut ShadowVote, a: &AdminCap) {
-    assert!(c.admin == object::id(a), ENotAdmin);
-    assert!(c.version < VERSION);
-    c.version = VERSION;
-}
-
 
 public(package) fun get_vote_creator(vote_pool: &VotePool):address{
     vote_pool.creator
