@@ -7,7 +7,7 @@ import { useCurrentAccount, useSignPersonalMessage } from "@mysten/dapp-kit";
 import { getVotePoolById, queryNftType, VoteType } from "@/contracts/query";
 import { SuiResponseVotePool } from "@/types";
 import { SessionKey } from "@mysten/seal";
-import { networkConfig } from "@/contracts";
+import { networkConfig, suiClient } from "@/contracts";
 import VoteDecryptedDetails from "../components/VoteDecryptedDetails";
 import PublicVoteDetails from "../components/PublicVoteDetails";
 import { Transaction } from "@mysten/sui/transactions";
@@ -66,7 +66,8 @@ export default function VoteResultPage({ params }: VoteResultPageProps) {
             const sessionKey = new SessionKey({
                 address: currentAccount?.address || "",
                 packageId: networkConfig.testnet.variables.packageID,
-                ttlMin: 10
+                ttlMin: 10,
+                suiClient: suiClient
             });
 
             signPersonalMessage(
